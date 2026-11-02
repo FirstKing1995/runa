@@ -24,7 +24,7 @@
     .heroi .arte::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(13, 11, 9, 0.96) 0%, rgba(13, 11, 9, 0.82) 38%, rgba(13, 11, 9, 0.2) 70%, rgba(13, 11, 9, 0.35) 100%), linear-gradient(0deg, var(--fundo) 0%, transparent 25%); }
     .heroi.com-arte .ilustra { visibility: hidden; }
     .capa-cap { width: 100%; aspect-ratio: 16 / 7; border-radius: 10px; background: #1a130c center / cover; margin-bottom: 18px; border: 1px solid var(--borda); }
-    @media (max-width: 900px) { .heroi .arte::after { background: linear-gradient(0deg, rgba(13, 11, 9, 0.97) 0%, rgba(13, 11, 9, 0.75) 55%, rgba(13, 11, 9, 0.35) 100%); } .heroi.com-arte .ilustra { display: none; } }
+    @media (max-width: 900px) { .heroi .arte { bottom: auto; height: 46vh; background-position: 55% center; } .heroi .arte::after { background: linear-gradient(0deg, var(--fundo) 0%, rgba(13, 11, 9, 0.45) 45%, rgba(13, 11, 9, 0.15) 100%); } .heroi.com-arte .bloco { padding-top: 34vh; } .heroi.com-arte .ilustra { display: none; } }
     .heroi .bloco { position: relative; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; padding-top: 40px; }
     .heroi h1 { font-size: clamp(2.2rem, 6.4vw, 4.2rem); line-height: 1.04; margin-bottom: 18px; }
     .heroi h1 em { font-style: normal; color: var(--brasa); }
@@ -201,7 +201,7 @@
   <footer class="rodape">
     <div class="bloco">
       <p><b class="marca" style="font-size:1rem">RUNA</b> · campanhas originais "A Noite do Sino Morto" e "A Coroa do Rei Corvo". Regras inspiradas no sistema d20.</p>
-      <p>Modelos 3D: <a href="https://kaylousberg.com" target="_blank" rel="noopener">KayKit, de Kay Lousberg</a> (CC0) e <a href="https://quaternius.com" target="_blank" rel="noopener">Quaternius</a> (CC0; o monstro "Big arm" em CC BY), via <a href="https://poly.pizza" target="_blank" rel="noopener">Poly Pizza</a>. Retratos dos heróis gerados com FLUX no Hugging Face. Reconhecimento de marcadores: <a href="https://github.com/damianofalcioni/js-aruco2" target="_blank" rel="noopener">js-aruco2</a>. 3D: <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a>. Ícones: <a href="https://lucide.dev" target="_blank" rel="noopener">Lucide</a>.</p>
+      <p>Modelos 3D: <a href="https://kaylousberg.com" target="_blank" rel="noopener">KayKit, de Kay Lousberg</a> (CC0) e <a href="https://quaternius.com" target="_blank" rel="noopener">Quaternius</a> (CC0; o monstro "Big arm" em CC BY), via <a href="https://poly.pizza" target="_blank" rel="noopener">Poly Pizza</a>. Retratos e ilustrações gerados com Google Gemini e ChatGPT. Reconhecimento de marcadores: <a href="https://github.com/damianofalcioni/js-aruco2" target="_blank" rel="noopener">js-aruco2</a>. 3D: <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a>. Ícones: <a href="https://lucide.dev" target="_blank" rel="noopener">Lucide</a>.</p>
       <p><a href="admin.html">Painel do administrador</a></p>
     </div>
   </footer>
