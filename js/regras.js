@@ -4,7 +4,8 @@
 var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
 
 (function (R) {
-  R.VERSAO_REGRAS = 1;
+  R.VERSAO_REGRAS = 2;
+  R.XP_NIVEL = [0, 400, 1100, 3000, 5200];
   R.COLS = 8;
   R.LINHAS = 6;
   var MAX_EVENTOS = 90;
@@ -45,11 +46,15 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     return o;
   }
 
-  R.cena = function (e) { return R.CENAS[e.cenaIdx] || null; };
+  R.capitulo = function (e) { return R.CAPITULOS[e.cap] || R.CAPITULOS.sino; };
+  R.cenasDe = function (e) { return R.capitulo(e).cenas; };
+  R.cena = function (e) { return R.cenasDe(e)[e.cenaIdx] || null; };
 
   // ---------------------------------------------------------------- estado
-  R.novoEstado = function (sala, jogador, nome, semente) {
+  R.novoEstado = function (sala, jogador, nome, semente, cap) {
+    var capi = R.CAPITULOS[cap] || R.CAPITULOS.sino;
     var e = {
+      cap: capi.id,
       versao: 0, regras: R.VERSAO_REGRAS, sala: sala, host: jogador,
       semente: (semente | 0) || 12345, fase: 'lobby', criado: Date.now(),
       jogadores: {}, u: {}, ordemHerois: [], flags: {}, mortos: {}, disp: {},
@@ -57,6 +62,27 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       objetivo: '', saida: false, armadilhas: {}, eventos: [], seq: 0, fotoCena: null
     };
     e.jogadores[jogador] = { nome: nome || 'Anfitrião' };
+    if (capi.nivelInicial > 1) { e.nivel = capi.nivelInicial; e.xp = R.XP_NIVEL[capi.nivelInicial - 1]; e.ouro = capi.ouroInicial || 0; }
+    return e;
+  };
+  // Novo capítulo com o mesmo grupo: heróis, nível, ouro e itens seguem; escolhas viram lembranças (c1_...).
+  R.continuarEstado = function (antigo, sala, cap, semente) {
+    var e = R.novoEstado(sala, antigo.host, '', semente, cap);
+    e.jogadores = clone(antigo.jogadores);
+    e.xp = Math.max(e.xp, antigo.xp); e.nivel = Math.max(e.nivel, antigo.nivel); e.ouro = antigo.ouro;
+    e.inv = clone(antigo.inv); delete e.inv.chave;
+    var lembrar = R.capitulo(antigo).lembrar || [];
+    lembrar.forEach(function (f) { if (antigo.flags[f]) e.flags['c1_' + f] = true; });
+    e.origem = antigo.sala;
+    antigo.ordemHerois.forEach(function (id) {
+      var v = antigo.u[id];
+      if (!v) return;
+      var h = novoHeroi(v.classe, v.nome, v.dono);
+      heroiNoNivel(h, e.nivel);
+      h.memoria = v.memoria || 0;
+      h.pvMax = Math.max(4, h.pvMax - h.memoria); h.pv = h.pvMax;
+      e.u[id] = h; e.ordemHerois.push(id);
+    });
     return e;
   };
 
@@ -79,6 +105,12 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
   };
 
   function ativa(u) { return u && !u.oculto && !u.morto; }
+  // Há algum objeto deste tipo ainda não usado na cena? (ex.: braseiros acesos)
+  function objetoAtivo(e, tipo) {
+    for (var id in e.u) if (e.u[id].obj === tipo && !e.u[id].usado) return true;
+    return false;
+  }
+  R.objetoAtivo = objetoAtivo;
   function bloqueia(u) { return ativa(u) && (u.lado !== 'objeto' || u.bloqueia); }
   R.ocupante = function (e, x, y, ignorar) {
     for (var id in e.u) {
@@ -181,9 +213,17 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
   };
   R.habsDe = function (u) {
     if (u.lado !== 'heroi') return [];
-    return R.CLASSES[u.classe].habs.concat(R.HABS_COMUNS);
+    var nv = u.nivel || 1;
+    return R.CLASSES[u.classe].habs.concat(R.HABS_COMUNS).filter(function (k) { return !R.HABS[k].nivel || nv >= R.HABS[k].nivel; });
   };
-  function bonusNivel(e) { return e.nivel >= 3 ? 1 : 0; }
+  function bonusNivel(e) { return e.nivel >= 5 ? 2 : e.nivel >= 3 ? 1 : 0; }
+  function magiaExtra(n) { return (n >= 2 ? 1 : 0) + (n >= 5 ? 1 : 0); }
+  R.magiaExtra = magiaExtra;
+  function heroiNoNivel(h, n) {
+    var c = R.CLASSES[h.classe];
+    h.nivel = n; h.pvMax = c.pv + (n - 1) * c.pvNivel; h.pv = h.pvMax;
+    h.magia = (c.magia || 0) + magiaExtra(n);
+  }
   R.bonusNivel = bonusNivel;
   function hostil(u) { return ativa(u) && u.lado === 'inimigo' && !u.pacifico && !u.rendido; }
   function inimigosAtivos(e) {
@@ -215,15 +255,17 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
   function ganharXp(e, n) {
     if (!n) return;
     e.xp += n;
-    var nv = e.xp >= 1100 ? 3 : e.xp >= 400 ? 2 : 1;
+    var nv = 1;
+    for (var i = 1; i < R.XP_NIVEL.length; i++) if (e.xp >= R.XP_NIVEL[i]) nv = i + 1;
+    var TXT = { 2: ', mais magia e mais usos de habilidade.', 3: ' e +1 em ataques e dano.', 4: ' e uma habilidade nova para cada classe.', 5: ', mais magia e +2 em ataques e dano.' };
     while (e.nivel < nv) {
       e.nivel++;
       herois(e).forEach(function (h) {
         var c = R.CLASSES[h.classe];
         h.pvMax += c.pvNivel; h.pv += c.pvNivel; h.nivel = e.nivel;
-        if (c.magia) h.magia += 1;
+        if (c.magia && (e.nivel === 2 || e.nivel === 5)) h.magia += 1;
       });
-      ev(e, { t: 'nivel', nivel: e.nivel, texto: 'O grupo alcançou o nível ' + e.nivel + '! Mais vida' + (e.nivel === 2 ? ', mais magia e mais usos de habilidade.' : ' e +1 em ataques e dano.') });
+      ev(e, { t: 'nivel', nivel: e.nivel, texto: 'O grupo alcançou o nível ' + e.nivel + '! Mais vida' + (TXT[e.nivel] || '.') });
     }
   }
 
@@ -238,6 +280,12 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     if (alvo.lado === 'heroi') {
       if (alvo.efeitos.furia) n = Math.floor(n / 2);
       if (tipo === 'necro' && e.inv.amuleto) n = Math.max(0, n - 3);
+    }
+    var mdef = alvo.lado === 'inimigo' ? R.MONSTROS[alvo.tipo] : null;
+    if (mdef) {
+      if (mdef.duro && tipo !== 'trovao' && tipo !== 'forca') n = Math.max(1, n - mdef.duro);
+      if (mdef.protegido && objetoAtivo(e, mdef.protegido)) n = Math.max(1, Math.floor(n / 2));
+      if (tipo === 'fogo' && alvo.efeitos) alvo.efeitos.queimado = true;
     }
     alvo.pv -= n;
     ev(e, { t: 'dano', alvo: alvo.id, de: fonte, valor: n, pv: Math.max(0, alvo.pv), tipo: tipo || '' });
@@ -304,7 +352,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     extra = extra || {};
     var v = vantagem(e, at, alvo, atq);
     var r = rolarD20(e, v);
-    var bon = (atq.b || 0) + (at.lado === 'heroi' ? bonusNivel(e) : 0);
+    var bon = (atq.b || 0) + (at.lado === 'heroi' ? bonusNivel(e) + (e.flags.lamina_estelar ? 1 : 0) : 0);
     var total = r.nat + bon;
     var ca = alvo.ca || 10;
     var crit = r.nat === 20;
@@ -319,8 +367,10 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       if (at.efeitos.marca === alvo.id) { dano += rolar(e, '1d6', crit).total; notas.push('marca'); }
       var cls = R.CLASSES[at.classe];
       if (cls.furtivo && e.combate && !e.combate.furtivo && v >= 0 && (v > 0 || aliadoAoLado(e, at, alvo))) {
-        dano += rolar(e, e.nivel >= 3 ? '2d6' : '1d6', crit).total; e.combate.furtivo = true; notas.push('furtivo');
+        dano += rolar(e, e.nivel >= 5 ? '3d6' : e.nivel >= 3 ? '2d6' : '1d6', crit).total; e.combate.furtivo = true; notas.push('furtivo');
       }
+      if (at.efeitos.veneno) { dano += rolar(e, '2d6', crit).total; delete at.efeitos.veneno; notas.push('veneno'); }
+      if (e.flags.lamina_estelar) { dano += rolar(e, '1d4', crit).total; notas.push('aço estelar'); }
       if (e.inv.oleo && alvo.lado === 'inimigo' && R.MONSTROS[alvo.tipo] && R.MONSTROS[alvo.tipo].mv) { dano += rolar(e, '1d4', crit).total; notas.push('prata'); }
       if (alvo.lado === 'objeto' && alvo.obj === 'sino' && e.flags.segredo_sino) { dano *= 2; notas.push('ponto fraco'); }
     }
@@ -337,6 +387,9 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     if (s.flag && !e.flags[s.flag]) return false;
     if (s.flags) for (var j = 0; j < s.flags.length; j++) if (!e.flags[s.flags[j]]) return false;
     if (s.semFlag && e.flags[s.semFlag]) return false;
+    if (s.min && !((e.flags[s.min[0]] | 0) >= s.min[1])) return false;
+    if (s.vivo && !(e.u[s.vivo] && ativa(e.u[s.vivo]))) return false;
+    if (s.todosUsados && objetoAtivo(e, s.todosUsados)) return false;
     if (s.morto && !e.mortos[s.morto]) return false;
     if (s.semInimigos && (inimigosAtivos(e).length || e.combate)) return false;
     if (s.area) {
@@ -356,7 +409,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         if (e.disp[g.id] || !cond(e, g.se)) continue;
         e.disp[g.id] = 1; disparou = true;
         executar(e, g.faz, {});
-        if (e.cenaIdx !== R.CENAS.indexOf(c) || e.fase !== 'jogo') return;
+        if (e.cenaIdx !== R.cenasDe(e).indexOf(c) || e.fase !== 'jogo') return;
       }
       if (!disparou) return;
     }
@@ -378,6 +431,12 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       }
       if (a.som) ev(e, { t: 'som', som: a.som });
       if (a.flag) e.flags[a.flag] = true;
+      if (a.conta) e.flags[a.conta] = (e.flags[a.conta] | 0) + 1;
+      if (a.revelar) for (var ka in e.armadilhas) if (!e.armadilhas[ka].revelada) { var pa = ka.split(','); e.armadilhas[ka].revelada = true; ev(e, { t: 'armadilha', revela: true, x: +pa[0], y: +pa[1] }); }
+      if (a.danoArea) {
+        var da = a.danoArea;
+        inimigosAtivos(e).filter(function (m) { return m.x >= da[0] && m.y >= da[1] && m.x <= da[2] && m.y <= da[3]; }).forEach(function (m) { aplicarDano(e, m, rolar(e, da[4]).total, da[5] || '', ctx.heroi || null); });
+      }
       if (a.objetivo) { e.objetivo = a.objetivo; ev(e, { t: 'objetivo', texto: a.objetivo }); }
       if (a.saida) { e.saida = true; ev(e, { t: 'saida', x: R.cena(e).saida[0], y: R.cena(e).saida[1] }); }
       if (a.xp) ganharXp(e, a.xp);
@@ -391,11 +450,13 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         s.x = p[0]; s.y = p[1]; s.oculto = false;
         ev(e, { t: 'surge', id: id, x: s.x, y: s.y });
       });
-      if (a.remover) a.remover.forEach(function (id) { if (e.u[id]) { delete e.u[id]; ev(e, { t: 'remover', id: id }); } });
+      if (a.remover) a.remover.forEach(function (id) { if (id === '$objeto') id = ctx.objeto; if (e.u[id]) { delete e.u[id]; ev(e, { t: 'remover', id: id }); } });
+      if (a.flagObjeto && ctx.objeto) e.flags[ctx.objeto] = true;
       if (a.fugir) a.fugir.forEach(function (id) { if (e.u[id]) { delete e.u[id]; ev(e, { t: 'foge', id: id }); } });
       if (a.custoMemoria && ctx.heroi) {
         var h = e.u[ctx.heroi];
         h.pvMax = Math.max(4, h.pvMax - a.custoMemoria); h.pv = Math.min(h.pv, h.pvMax);
+        h.memoria = (h.memoria || 0) + a.custoMemoria;
         ev(e, { t: 'narra', texto: 'Mãe Lodo encosta o dedo na testa de ' + h.nome + '. Uma lembrança feliz some para sempre. (' + h.nome + ' perde ' + a.custoMemoria + ' PV máximos.)' });
       }
       if (a.danoHeroi && ctx.heroi) aplicarDano(e, e.u[ctx.heroi], rolar(e, a.danoHeroi).total, '', null);
@@ -405,7 +466,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       if (a.combate) iniciarCombate(e);
       if (a.final) {
         e.fase = 'fim'; e.combate = null; e.dialogo = null;
-        ev(e, { t: 'final', textos: R.EPILOGO(e.flags) });
+        ev(e, { t: 'final', textos: R.capitulo(e).epilogo(e.flags), cap: e.cap });
         return;
       }
     }
@@ -413,7 +474,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
 
   // ------------------------------------------------------------- cenas
   function carregarCena(e, idx, foto) {
-    var c = R.CENAS[idx];
+    var c = R.cenasDe(e)[idx];
     e.cenaIdx = idx; e.combate = null; e.dialogo = null; e.disp = {}; e.mortos = {};
     e.saida = false; e.objetivo = c.objetivo; e.armadilhas = {};
     for (var id in e.u) if (e.u[id].lado !== 'heroi') delete e.u[id];
@@ -429,7 +490,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       h.x = p[0]; h.y = p[1];
       h.pv = h.pvMax; h.caido = false; h.efeitos = {}; h.usos = {};
       R.habsDe(h).forEach(function (k) { if (R.HABS[k].usos) h.usos[k] = R.HABS[k].usos + (e.nivel >= 2 ? 1 : 0); });
-      h.magia = (R.CLASSES[h.classe].magia || 0) + (e.nivel >= 2 ? 1 : 0);
+      h.magia = (R.CLASSES[h.classe].magia || 0) + magiaExtra(e.nivel);
     });
     var n = hs.length;
     c.unidades.forEach(function (def) {
@@ -438,12 +499,13 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       if (def.m) {
         u = novoMonstro(def, def.id, def.x, def.y);
         if (c.pacifico) u.pacifico = true;
-        // grupo de um herói só: inimigos um pouco mais frágeis
-        if (n === 1) { u.pv = u.pvMax = Math.ceil(u.pvMax * 0.7); }
+        // grupo pequeno, ou derrotas seguidas na mesma cena: inimigos mais frágeis
+        var k = (n === 1 ? 0.7 : 1) * (1 - Math.min(0.4, 0.1 * ((e.tentativas || {})[idx] || 0)));
+        if (k < 1) u.pv = u.pvMax = Math.max(1, Math.ceil(u.pvMax * k));
       }
       else if (def.npc) {
         var np = R.NPCS[def.npc];
-        u = { id: def.id, lado: 'npc', npc: def.npc, nome: np.nome, vis: np.vis, x: def.x, y: def.y, dialogo: def.dialogo, pose: def.pose || np.pose || '' };
+        u = { id: def.id, lado: 'npc', npc: def.npc, nome: np.nome, vis: np.vis, x: def.x, y: def.y, dialogo: def.dialogo, pose: def.pose || np.pose || '', oculto: !!def.oculto };
       } else if (def.obj) {
         var ob = R.OBJETOS[def.obj];
         u = { id: def.id, lado: 'objeto', obj: def.obj, nome: ob.nome, vis: ob.vis, x: def.x, y: def.y, bloqueia: ob.bloqueia !== false, efeitos: {} };
@@ -494,6 +556,9 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
   function derrota(e) {
     ev(e, { t: 'narra', texto: 'A escuridão engole o grupo... Mas o destino ainda não terminou com vocês. Vocês despertam no começo deste caminho, com a lembrança amarga da derrota.' });
     ev(e, { t: 'derrota' });
+    e.tentativas = e.tentativas || {};
+    e.tentativas[e.cenaIdx] = (e.tentativas[e.cenaIdx] || 0) + 1;
+    if (e.tentativas[e.cenaIdx] >= 2) ev(e, { t: 'narra', texto: 'Desta vez vocês conhecem o caminho. Os inimigos parecem mais cansados do que antes.' });
     carregarCena(e, e.cenaIdx, clone(e.fotoCena));
   }
 
@@ -529,18 +594,25 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     var def = R.MONSTROS[m.tipo];
     var cb = e.combate;
     if (def.falas && !m.falou && rnd(e) < 0.45) { m.falou = true; ev(e, { t: 'fala', quem: m.id, nome: m.nome, vis: m.vis, texto: escolha(e, def.falas) }); }
-    // Vorag ergue os mortos a cada duas rodadas enquanto o sino estiver inteiro.
-    if (def.chefe && !e.flags.sino_quebrado && cb.rodada % 2 === 0 && m.invocou !== cb.rodada) {
-      var vivos = inimigosAtivos(e).filter(function (o) { return o.tipo === 'ossudo'; }).length;
-      if (vivos < 4) {
+    // Trolls se regeneram, a não ser que o fogo os tenha queimado desde o último turno.
+    if (def.regenera) {
+      if (m.efeitos.queimado) { delete m.efeitos.queimado; ev(e, { t: 'narra', texto: 'As queimaduras de ' + m.nome + ' não fecham. O fogo impede a regeneração!' }); }
+      else if (m.pv < m.pvMax) curar(e, m, def.regenera, m.id);
+    }
+    // Chefes erguem servos (Vorag e o sino, o Rei Corvo e os braseiros) enquanto a condição valer.
+    var iv = def.invoca;
+    if (iv && cb.rodada % iv.cada === 0 && m.invocou !== cb.rodada && !(iv.semFlag && e.flags[iv.semFlag]) && !(iv.enquantoObj && !objetoAtivo(e, iv.enquantoObj))) {
+      var vivos = inimigosAtivos(e).filter(function (o) { return o.tipo === iv.tipo; }).length;
+      if (vivos < iv.max) {
         m.invocou = cb.rodada;
-        var sino = e.u.sino || m;
-        ev(e, { t: 'magia', de: m.id, fx: 'invocar', anim: 'invocar', texto: 'Vorag puxa a corda do sino. DONG. Os mortos se levantam!' });
-        ev(e, { t: 'som', som: 'sino' });
-        for (var k = 0; k < 2; k++) {
-          var p = casaLivreProxima(e, sino.x + (k ? 2 : -1), sino.y + 1);
+        var base = e.u[iv.perto] || m;
+        ev(e, { t: 'magia', de: m.id, fx: 'invocar', anim: 'invocar', texto: iv.texto });
+        if (iv.som) ev(e, { t: 'som', som: iv.som });
+        for (var k = 0; k < (e.ordemHerois.length <= 2 ? 1 : iv.qtd || 2); k++) {
+          var p = casaLivreProxima(e, base.x + (k ? 2 : -1), base.y + 1);
           var id = 'inv' + e.seq + k;
-          e.u[id] = novoMonstro({ m: 'ossudo' }, id, p[0], p[1]);
+          e.u[id] = novoMonstro({ m: iv.tipo }, id, p[0], p[1]);
+          if (e.ordemHerois.length === 1) e.u[id].pv = e.u[id].pvMax = Math.ceil(e.u[id].pvMax * 0.7);
           ev(e, { t: 'surge', id: id, x: p[0], y: p[1] });
         }
         iniciarCombate(e);
@@ -657,6 +729,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       var bloq = false;
       if (o.req && o.req.ouro && e.ouro < o.req.ouro) bloq = true;
       if (o.req && o.req.item && !e.inv[o.req.item]) bloq = true;
+      if (o.req && o.req.flag && !e.flags[o.req.flag]) bloq = true;
       return { t: o.t, vis: vis, bloq: bloq };
     });
     return { npc: e.dialogo.npc, heroi: e.dialogo.heroi, fala: no.fala, opcoes: ops };
@@ -664,6 +737,12 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
   function entrarNo(e, noId, ctx) {
     var dl = R.cena(e).dialogos[e.dialogo.dlg];
     var no = dl.nos[noId];
+    // nó de ramo: escolhe o próximo nó pelas condições, sem falar nada
+    for (var guarda = 0; no.ramo && guarda < 8; guarda++) {
+      var ir = null;
+      for (var i = 0; i < no.ramo.length && !ir; i++) if (cond(e, no.ramo[i].se)) ir = no.ramo[i].vai;
+      noId = ir; no = dl.nos[noId];
+    }
     e.dialogo.no = noId;
     var u = e.u[e.dialogo.npc];
     ev(e, { t: 'fala', quem: e.dialogo.npc, nome: u ? u.nome : '', vis: u ? u.vis : '', texto: no.fala, dialogo: true });
@@ -710,10 +789,8 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     }
     var h = novoHeroi(c.classe, String(c.nome || cl.heroi).slice(0, 18), c.jogador);
     e.u[id] = h; e.ordemHerois.push(id);
+    heroiNoNivel(h, e.nivel);
     if (e.fase === 'jogo') {
-      h.nivel = e.nivel;
-      for (var n = 2; n <= e.nivel; n++) { h.pvMax += cl.pvNivel; if (cl.magia) h.magia++; }
-      h.pv = h.pvMax;
       R.habsDe(h).forEach(function (k) { if (R.HABS[k].usos) h.usos[k] = R.HABS[k].usos; });
       var ent = R.cena(e).entrada[0], p = casaLivreProxima(e, ent[0], ent[1]);
       h.x = p[0]; h.y = p[1];
@@ -800,7 +877,8 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       if (dist(h, alvo) > hb.alc) throw 'Precisa estar ao lado.';
       if (hb.alvo === 'caido' && !alvo.caido) throw alvo.nome + ' não está caído.';
     }
-    if (c.hab === 'ardil' && !e.combate) throw 'Só faz sentido em combate.';
+    if ((c.hab === 'ardil' || c.hab === 'surto') && !e.combate) throw 'Só faz sentido em combate.';
+    if (c.hab === 'giro' && !inimigosAtivos(e).some(function (m) { return hostil(m) && dist(m, h) === 1; })) throw 'Nenhum inimigo ao seu lado.';
     gastar(e, hb.custo);
     if (hb.usos) h.usos[c.hab]--;
     if (hb.carga) h.magia--;
@@ -822,6 +900,17 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       case 'balsamo': curar(e, alvo, rolar(e, hb.cura).total, h.id); break;
       case 'levantar': alvo.caido = false; alvo.pv = Math.max(1, alvo.pv); ev(e, { t: 'cura', alvo: alvo.id, de: h.id, valor: 1, pv: alvo.pv }); break;
       case 'esquivar': h.efeitos.esquiva = true; break;
+      case 'surto': e.combate.acao += 1; ev(e, { t: 'narra', texto: h.nome + ' respira fundo e ganha uma ação extra!' }); break;
+      case 'giro':
+        inimigosAtivos(e).filter(function (m) { return hostil(m) && dist(m, h) === 1; }).forEach(function (m) { if (ativa(m)) atacar(e, h, m, R.ataquesDe(h)[0]); });
+        break;
+      case 'veneno': h.efeitos.veneno = 1; ev(e, { t: 'narra', texto: h.nome + ' passa veneno nas lâminas. O próximo golpe vai doer.' }); break;
+      case 'bola': case 'chuva':
+        inimigosAtivos(e).filter(function (m) { return dist(m, alvo) <= hb.raio; }).forEach(function (m) {
+          var sv = d(e, 20) + 1, dn = rolar(e, hb.dano).total;
+          aplicarDano(e, m, sv >= hb.salva.cd ? Math.floor(dn / 2) : dn, c.hab === 'bola' ? 'fogo' : '', h.id);
+        });
+        break;
       case 'procurar':
         var achou = false, ok = teste(e, h, 'percepcao', 12);
         if (ok) for (var k in e.armadilhas) {
@@ -871,7 +960,8 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     gastar(e, custo);
     ev(e, { t: 'interage', de: h.id, alvo: u.id });
     var ctx = { heroi: h.id, objeto: u.id };
-    if (ob.req && e.inv[ob.req]) { u.usado = true; executar(e, ob.okReq, ctx); }
+    if (ob.reqFlag && !e.flags[ob.reqFlag]) executar(e, ob.semFlag, ctx);
+    else if (ob.req && e.inv[ob.req]) { u.usado = true; executar(e, ob.okReq, ctx); }
     else if (ob.teste) {
       var ok = teste(e, h, ob.teste.p, ob.teste.cd);
       if (ok || !ob.req) u.usado = true;
@@ -937,7 +1027,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     else if (c.op === 'pularVez') { if (e.combate) proximoTurno(e); }
     else if (c.op === 'reiniciar') carregarCena(e, e.cenaIdx, clone(e.fotoCena));
     else if (c.op === 'cena') {
-      var i = Math.max(0, Math.min(R.CENAS.length - 1, c.idx | 0));
+      var i = Math.max(0, Math.min(R.cenasDe(e).length - 1, c.idx | 0));
       if (e.fase === 'lobby') { e.fase = 'jogo'; e.inv = { pocao: e.ordemHerois.length }; }
       e.fase = 'jogo';
       carregarCena(e, i);

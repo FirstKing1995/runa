@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0b09">
+  <title>RUNA — Minhas campanhas</title>
+  <link rel="icon" href="assets/icone.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Cinzel:wght@600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/runa.css">
+  <style>
+    body { min-height: 100vh; background: radial-gradient(ellipse at 50% -10%, #2e2014 0%, var(--fundo) 55%); }
+    main { width: min(980px, 100%); margin: 0 auto; padding: calc(env(safe-area-inset-top) + 18px) 16px 60px; }
+    .topo { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 22px; }
+    .topo .marca { font-size: 1.6rem; text-decoration: none; }
+    .topo .quem { display: flex; gap: 8px; align-items: center; color: var(--texto2); font-size: 0.92rem; }
+    .entrada { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: center; min-height: 70vh; }
+    .entrada .apresenta h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.08; }
+    .entrada .apresenta p { color: var(--texto2); font-size: 1.08rem; }
+    .entrada .apresenta ul { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 10px; }
+    .entrada .apresenta li { display: flex; gap: 10px; color: var(--texto2); }
+    .entrada .apresenta li svg { color: var(--ouro); flex: none; margin-top: 3px; }
+    .caixa { padding: 24px; }
+    .abas { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--borda); }
+    .abas button { flex: 1; padding: 10px 6px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--texto2); font-family: var(--titulo); font-size: 0.92rem; cursor: pointer; }
+    .abas button.ativa { color: var(--ouro-vivo); border-bottom-color: var(--ouro); }
+    .caixa form { display: grid; gap: 2px; }
+    .caixa .btn { width: 100%; margin-top: 6px; }
+    .link-fraco { background: none; border: 0; color: var(--texto2); text-decoration: underline; cursor: pointer; font-size: 0.9rem; padding: 8px 0; justify-self: start; }
+    .secao { margin-top: 30px; }
+    .secao > h2 { font-size: 1.3rem; display: flex; align-items: center; gap: 8px; }
+    .novas { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+    .nova { padding: 20px; display: flex; flex-direction: column; gap: 6px; }
+    .nova .sobretitulo { margin: 0; }
+    .nova h3 { font-size: 1.2rem; margin: 0; }
+    .nova p { color: var(--texto2); margin: 0 0 8px; font-size: 0.95rem; }
+    .nova .btn { margin-top: auto; }
+    .campanhas { display: grid; gap: 12px; }
+    .camp { padding: 16px 18px; display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; align-items: center; }
+    .camp h3 { font-size: 1.05rem; margin: 0; }
+    .camp .meta { color: var(--texto2); font-size: 0.88rem; margin: 2px 0 0; }
+    .camp .rostos { display: flex; margin-top: 8px; }
+    .camp .rostos .retrato { width: 34px; height: 34px; font-size: 0.95rem; margin-right: -6px; border-width: 1.5px; }
+    .camp .botoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .progresso { height: 6px; border-radius: 3px; background: #24190f; margin-top: 8px; overflow: hidden; max-width: 260px; }
+    .progresso i { display: block; height: 100%; background: linear-gradient(90deg, #8a6a2a, var(--ouro-vivo)); }
+    .vazio { padding: 22px; text-align: center; color: var(--texto2); }
+    .entrar-codigo { display: flex; gap: 8px; align-items: end; padding: 16px 18px; }
+    .entrar-codigo .campo { flex: 1; margin: 0; }
+    .perfil { padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+    .perfil .linha-inteira { grid-column: 1 / -1; }
+    @media (max-width: 760px) {
+      .entrada { grid-template-columns: 1fr; min-height: 0; }
+      .camp { grid-template-columns: 1fr; }
+      .camp .botoes { justify-content: flex-start; }
+      .perfil { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="topo">
+      <a class="marca" href="index.html">RUNA</a>
+      <div class="quem" id="quem"></div>
+    </header>
+
+    <!-- ===================== fora da conta ===================== -->
+    <section id="fora" hidden>
+      <div class="entrada">
+        <div class="apresenta">
+          <p class="sobretitulo">RPG de mesa em realidade aumentada</p>
+          <h1>Sua mesa de aventura, salva na sua conta.</h1>
+          <p>Crie a campanha, chame os amigos pelo link e parem onde quiserem. Na próxima sessão, cada um abre o celular e a história continua do ponto exato.</p>
+          <ul>
+            <li><i data-lucide="users"></i><span>Cada jogador com a própria conta e o próprio herói.</span></li>
+            <li><i data-lucide="bookmark"></i><span>Várias campanhas ao mesmo tempo, cada grupo na sua.</span></li>
+            <li><i data-lucide="scroll-text"></i><span>Ficha do personagem completa, direto no celular.</span></li>
+          </ul>
+        </div>
+        <div class="caixa painel ornato">
+          <div class="abas" role="tablist">
+            <button data-aba="entrar" class="ativa" role="tab">Entrar</button>
+            <button data-aba="cadastro" role="tab">Criar conta</button>
+          </div>
+          <form id="f-entrar" data-painel="entrar">
+            <div class="campo"><label for="l-email">E-mail</label><input id="l-email" type="email" required autocomplete="email"></div>
+            <div class="campo"><label for="l-senha">Senha</label><input id="l-senha" type="password" required autocomplete="current-password"></div>
+            <button class="btn ouro">Entrar</button>
+            <button type="button" class="link-fraco" data-aba="esqueci">Esqueci minha senha</button>
+            <p class="msg" id="l-msg"></p>
+          </form>
+          <form id="f-cadastro" data-painel="cadastro" hidden>
+            <div class="campo"><label for="c-nome">Nome</label><input id="c-nome" required maxlength="60" autocomplete="name"></div>
+            <div class="campo"><label for="c-apelido">Apelido na mesa</label><input id="c-apelido" required maxlength="18" autocomplete="nickname" placeholder="Como o grupo vai te ver"></div>
+            <div class="campo"><label for="c-email">E-mail</label><input id="c-email" type="email" required autocomplete="email"></div>
+            <div class="campo"><label for="c-senha">Senha</label><input id="c-senha" type="password" required minlength="8" autocomplete="new-password" placeholder="Pelo menos 8 caracteres"></div>
+            <button class="btn ouro">Criar conta e jogar grátis</button>
+            <p class="msg" id="c-msg"></p>
+          </form>
+          <form id="f-esqueci" data-painel="esqueci" hidden>
+            <p style="color:var(--texto2);margin-top:0">Mandamos um código de 6 dígitos para o seu e-mail.</p>
+            <div class="campo"><label for="r-email">E-mail da conta</label><input id="r-email" type="email" required autocomplete="email"></div>
+            <button class="btn">Enviar código</button>
+            <div id="r-passo2" hidden>
+              <div class="campo"><label for="r-codigo">Código recebido</label><input id="r-codigo" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" style="letter-spacing:.3em;font-family:var(--titulo)"></div>
+              <div class="campo"><label for="r-senha">Senha nova</label><input id="r-senha" type="password" minlength="8" autocomplete="new-password"></div>
+              <button type="button" class="btn ouro" id="bt-redefinir">Salvar a senha nova</button>
+            </div>
+            <button type="button" class="link-fraco" data-aba="entrar">Voltar para entrar</button>
+            <p class="msg" id="r-msg"></p>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== dentro da conta ===================== -->
+    <section id="dentro" hidden>
+      <h1 style="font-size:clamp(1.6rem,4vw,2.2rem)" id="saudacao"></h1>
+
+      <div class="secao">
+        <h2><i data-lucide="bookmark"></i> Minhas campanhas</h2>
+        <div class="campanhas" id="campanhas"><div class="vazio painel">Carregando...</div></div>
+      </div>
+
+      <div class="secao">
+        <h2><i data-lucide="sparkles"></i> Começar uma campanha nova</h2>
+        <div class="novas" id="novas"></div>
+      </div>
+
+      <div class="secao">
+        <h2><i data-lucide="log-in"></i> Recebeu um código?</h2>
+        <form class="entrar-codigo painel" id="f-codigo">
+          <div class="campo"><label for="cod">Código da campanha</label><input id="cod" maxlength="5" required placeholder="K7RQX" style="text-transform:uppercase;letter-spacing:.3em;font-family:var(--titulo)"></div>
+          <button class="btn">Entrar</button>
+        </form>
+      </div>
+
+      <div class="secao">
+        <h2><i data-lucide="user-round"></i> Meu perfil</h2>
+        <form class="perfil painel ornato" id="f-perfil">
+          <div class="campo"><label for="p-nome">Nome</label><input id="p-nome" required maxlength="60" autocomplete="name"></div>
+          <div class="campo"><label for="p-apelido">Apelido na mesa</label><input id="p-apelido" required maxlength="18" autocomplete="nickname"></div>
+          <div class="campo"><label for="p-atual">Senha atual <small>(só para trocar a senha)</small></label><input id="p-atual" type="password" autocomplete="current-password"></div>
+          <div class="campo"><label for="p-nova">Senha nova</label><input id="p-nova" type="password" minlength="8" autocomplete="new-password"></div>
+          <div class="linha-inteira" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn">Salvar perfil</button><span class="msg" id="p-msg"></span></div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/campanha.js"></script>
+  <script src="js/campanha2.js"></script>
+  <script src="js/regras.js"></script>
+  <script type="module">
+    import * as Rede from './js/rede.js';
+    const R = window.RUNA;
+    const $ = (s) => document.querySelector(s);
+    const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const icones = () => window.lucide && lucide.createIcons();
+    const IC = { guerreiro: 'shield', barbara: 'axe', maga: 'wand-sparkles', ladina: 'venetian-mask', cacadora: 'crosshair' };
+    const params = new URLSearchParams(location.search);
+    const volta = params.get('volta');
+    const msg = (id, t, tipo = '') => { const m = $(id); m.className = 'msg ' + tipo; m.textContent = t; };
+    function toast(t, erro) { const d = document.createElement('div'); d.className = 'toast' + (erro ? ' erro' : ''); d.textContent = t; $('#toast').appendChild(d); setTimeout(() => d.remove(), 3500); }
+    // depois de entrar, volta para onde a pessoa estava (só páginas deste site)
+    function seguir() {
+      if (volta && /^jogo\.html\?sala=[A-Z2-9]{5}$/.test(volta)) location.href = volta;
+      else mostrar();
+    }
+    function aba(nome) {
+      document.querySelectorAll('[data-painel]').forEach((f) => { f.hidden = f.dataset.painel !== nome; });
+      document.querySelectorAll('.abas button').forEach((b) => b.classList.toggle('ativa', b.dataset.aba === nome));
+      const primeiro = document.querySelector(`[data-painel="${nome}"] input`);
+      if (primeiro) primeiro.focus();
+    }
+    document.querySelectorAll('[data-aba]').forEach((b) => b.onclick = () => aba(b.dataset.aba));
+
+    async function enviando(form, fn) {
+      const b = form.querySelector('button:not([type=button])');
+      b.disabled = true;
+      try { await fn(); } finally { b.disabled = false; }
+    }
+    $('#f-entrar').onsubmit = (ev) => { ev.preventDefault(); enviando(ev.target, async () => {
+      msg('#l-msg', 'Conferindo...');
+      try {
+        const r = await Rede.entrar($('#l-email').value.trim(), $('#l-senha').value);
+        if (!r.ok) return msg('#l-msg', r.erro, 'erro');
+        seguir();
+      } catch (e) { msg('#l-msg', e.message, 'erro'); }
+    }); };
+    $('#f-cadastro').onsubmit = (ev) => { ev.preventDefault(); enviando(ev.target, async () => {
+      msg('#c-msg', 'Criando sua conta...');
+      try {
+        const r = await Rede.cadastrar({ nome: $('#c-nome').value, apelido: $('#c-apelido').value, email: $('#c-email').value.trim(), senha: $('#c-senha').value });
+        if (!r.ok) return msg('#c-msg', r.erro, 'erro');
+        seguir();
+      } catch (e) { msg('#c-msg', e.message, 'erro'); }
+    }); };
+    $('#f-esqueci').onsubmit = (ev) => { ev.preventDefault(); enviando(ev.target, async () => {
+      msg('#r-msg', 'Enviando...');
+      try {
+        const r = await Rede.esqueci($('#r-email').value.trim());
+        if (!r.ok) return msg('#r-msg', r.erro, 'erro');
+        msg('#r-msg', r.msg, 'ok');
+        $('#r-passo2').hidden = false;
+        $('#r-codigo').focus();
+      } catch (e) { msg('#r-msg', e.message, 'erro'); }
+    }); };
+    $('#bt-redefinir').onclick = async () => {
+      const b = $('#bt-redefinir'); b.disabled = true;
+      try {
+        const r = await Rede.redefinir($('#r-email').value.trim(), $('#r-codigo').value.trim(), $('#r-senha').value);
+        if (!r.ok) msg('#r-msg', r.erro, 'erro'); else seguir();
+      } catch (e) { msg('#r-msg', e.message, 'erro'); }
+      b.disabled = false;
+    };
+
+    // ------------------------------------------------------------ logado
+    function retrato(c) { return `<div class="retrato"><img src="assets/retratos/${c}.webp" alt="" onerror="this.remove()"><i data-lucide="${IC[c] || 'user'}"></i></div>`; }
+    function quando(t) {
+      if (!t) return '';
+      const d = (Date.now() - t) / 60000;
+      return d < 2 ? 'agora' : d < 60 ? 'há ' + Math.round(d) + ' min' : d < 1440 ? 'há ' + Math.round(d / 60) + ' h' : new Date(t).toLocaleDateString('pt-BR');
+    }
+    async function mostrar() {
+      const s = Rede.sessao();
+      $('#fora').hidden = !!s; $('#dentro').hidden = !s;
+      if (!s) {
+        $('#quem').innerHTML = '';
+        aba(params.get('modo') === 'cadastro' ? 'cadastro' : 'entrar');
+        icones();
+        return;
+      }
+      $('#quem').innerHTML = `<span>${esc(s.conta.apelido)}</span><button class="btn pequeno fantasma" id="bt-sair"><i data-lucide="log-out"></i> Sair</button>`;
+      $('#bt-sair').onclick = () => { Rede.sair(); location.href = 'conta.html'; };
+      $('#saudacao').textContent = 'Olá, ' + s.conta.apelido + '. A mesa está posta.';
+      $('#p-nome').value = s.conta.nome; $('#p-apelido').value = s.conta.apelido;
+      $('#novas').innerHTML = Object.values(R.CAPITULOS).map((c) => `<article class="nova painel ornato">
+        <p class="sobretitulo">Capítulo ${esc(c.num)}${c.nivelInicial > 1 ? ' · heróis no nível ' + c.nivelInicial : ''}</p>
+        <h3>${esc(c.titulo)}</h3><p>${esc(c.resumo)}</p>
+        <button class="btn ${c.id === 'sino' ? 'ouro' : ''}" data-novo="${c.id}"><i data-lucide="swords"></i> Criar e chamar o grupo</button></article>`).join('');
+      icones();
+      document.querySelectorAll('[data-novo]').forEach((b) => b.onclick = async () => {
+        b.disabled = true; b.textContent = 'Preparando a mesa...';
+        try { const sala = await Rede.criarMesa({ cap: b.dataset.novo }); location.href = 'jogo.html?sala=' + sala; }
+        catch (e) { toast(e.message, true); mostrar(); }
+      });
+      carregarCampanhas();
+    }
+    async function carregarCampanhas() {
+      let r;
+      try { r = await Rede.eu(); } catch (e) { $('#campanhas').innerHTML = `<div class="vazio painel">${esc(e.message)}</div>`; return; }
+      if (!r.ok) { $('#campanhas').innerHTML = `<div class="vazio painel">${esc(r.erro)}</div>`; return; }
+      if (r.conta) { localStorage.setItem('runa_conta', JSON.stringify(r.conta)); }
+      const lista = r.campanhas;
+      if (!lista.length) { $('#campanhas').innerHTML = '<div class="vazio painel">Nenhuma campanha ainda. Crie a primeira logo abaixo e mande o link para o grupo.</div>'; return; }
+      $('#campanhas').innerHTML = lista.map((m) => {
+        const estado = m.fase === 'lobby' ? 'Escolhendo heróis' : m.fase === 'fim' ? 'Capítulo concluído' : 'Cena ' + (m.cenaIdx + 1) + ' de ' + m.totalCenas + ': ' + m.cena;
+        const prog = m.fase === 'fim' ? 1 : m.fase === 'lobby' ? 0 : (m.cenaIdx + 0.5) / m.totalCenas;
+        const continuar = m.fase === 'fim' && m.proximo && m.souAnfitriao
+          ? (m.continuacao ? `<a class="btn pequeno ouro" href="jogo.html?sala=${m.continuacao}">Ir para o próximo capítulo</a>` : `<button class="btn pequeno ouro" data-seguir="${m.sala}">Continuar no Capítulo ${esc((R.CAPITULOS[m.proximo] || {}).num || '')}</button>`) : '';
+        return `<article class="camp painel ornato">
+          <div>
+            <p class="sobretitulo">Capítulo ${esc(m.capNum)} · ${esc(m.sala)}${m.souAnfitriao ? ' · você criou' : ''}</p>
+            <h3>${esc(m.capTitulo)}</h3>
+            <p class="meta">${esc(estado)} · ${m.herois.length ? 'nível ' + m.nivel + ' · ' : ''}${esc(m.jogadores.join(', '))} · ${quando(m.atualizado)}</p>
+            <div class="progresso"><i style="width:${Math.round(prog * 100)}%"></i></div>
+            ${m.herois.length ? `<div class="rostos">${m.herois.map((h) => retrato(h.classe)).join('')}</div>` : ''}
+          </div>
+          <div class="botoes">
+            ${continuar}
+            <a class="btn pequeno ${m.fase === 'fim' ? '' : 'ouro'}" href="jogo.html?sala=${m.sala}"><i data-lucide="play"></i> ${m.fase === 'lobby' ? 'Abrir' : m.fase === 'fim' ? 'Ver' : 'Continuar'}</a>
+            <button class="btn pequeno" data-convidar="${m.sala}" aria-label="Convidar"><i data-lucide="user-plus"></i> Convidar</button>
+            <button class="btn pequeno fantasma" data-esquecer="${m.sala}" aria-label="Tirar da lista"><i data-lucide="eye-off"></i></button>
+          </div></article>`;
+      }).join('');
+      icones();
+      document.querySelectorAll('[data-convidar]').forEach((b) => b.onclick = async () => {
+        const link = Rede.linkConvite(b.dataset.convidar);
+        try { if (navigator.share) await navigator.share({ title: 'RUNA', text: 'Entra na minha campanha de RUNA: ', url: link }); else { await navigator.clipboard.writeText(link); toast('Link copiado. Mande para o grupo.'); } } catch (e) { /* cancelado */ }
+      });
+      document.querySelectorAll('[data-esquecer]').forEach((b) => b.onclick = async () => {
+        if (!confirm('Tirar a campanha ' + b.dataset.esquecer + ' da sua lista? Ela continua existindo para o grupo, e você pode voltar pelo link.')) return;
+        await Rede.esquecerMesa(b.dataset.esquecer); carregarCampanhas();
+      });
+      document.querySelectorAll('[data-seguir]').forEach((b) => b.onclick = async () => {
+        b.disabled = true; b.textContent = 'Preparando...';
+        try { const s = await Rede.criarMesa({ deMesa: b.dataset.seguir }); location.href = 'jogo.html?sala=' + s; }
+        catch (e) { toast(e.message, true); b.disabled = false; }
+      });
+    }
+    $('#f-codigo').onsubmit = (ev) => {
+      ev.preventDefault();
+      const c = $('#cod').value.trim().toUpperCase();
+      if (!Rede.codigoValido(c)) return toast('O código tem 5 letras ou números, por exemplo K7RQX.', true);
+      location.href = 'jogo.html?sala=' + c;
+    };
+    $('#f-perfil').onsubmit = (ev) => { ev.preventDefault(); enviando(ev.target, async () => {
+      const d = { nome: $('#p-nome').value, apelido: $('#p-apelido').value };
+      if ($('#p-nova').value) { d.senhaAtual = $('#p-atual').value; d.senhaNova = $('#p-nova').value; }
+      try {
+        const r = await Rede.atualizarPerfil(d);
+        if (!r.ok) return msg('#p-msg', r.erro, 'erro');
+        msg('#p-msg', 'Perfil salvo.', 'ok');
+        $('#p-atual').value = ''; $('#p-nova').value = '';
+        mostrar();
+      } catch (e) { msg('#p-msg', e.message, 'erro'); }
+    }); };
+    mostrar();
+  </script>
+</body>
+</html>

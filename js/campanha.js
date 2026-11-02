@@ -13,7 +13,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       atr: { for: 3, des: 0, con: 2, int: -1, sab: 1, car: 0 },
       prof: ['atletismo', 'intimidacao', 'percepcao', 'sobrevivencia'],
       ataques: [{ n: 'Espada longa', b: 5, d: '1d8+3', alc: 1, anim: 'golpe' }],
-      habs: ['folego', 'desafio'],
+      habs: ['folego', 'desafio', 'surto'],
       voz: { tom: 0.75, vel: 0.95 }
     },
     barbara: {
@@ -24,7 +24,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       atr: { for: 3, des: 1, con: 3, int: -1, sab: 0, car: 0 },
       prof: ['atletismo', 'intimidacao', 'sobrevivencia', 'percepcao'],
       ataques: [{ n: 'Machado grande', b: 5, d: '1d12+3', alc: 1, anim: 'golpe2' }],
-      habs: ['furia'],
+      habs: ['furia', 'giro'],
       voz: { tom: 1.05, vel: 1.0 }
     },
     maga: {
@@ -35,7 +35,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       atr: { for: -1, des: 2, con: 1, int: 3, sab: 1, car: 0 },
       prof: ['arcanismo', 'historia', 'investigacao', 'intuicao'],
       ataques: [{ n: 'Cajado', b: 1, d: '1d6-1', alc: 1, anim: 'golpe' }],
-      habs: ['fogo', 'misseis', 'trovao'],
+      habs: ['fogo', 'misseis', 'trovao', 'bola'],
       magia: 2,
       voz: { tom: 1.2, vel: 1.0 }
     },
@@ -50,7 +50,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         { n: 'Adagas', b: 5, d: '1d6+3', alc: 1, anim: 'facas' },
         { n: 'Adaga arremessada', b: 5, d: '1d4+3', alc: 4, anim: 'arremesso', fx: 'adaga' }
       ],
-      habs: ['ardil'],
+      habs: ['ardil', 'veneno'],
       furtivo: true,
       voz: { tom: 1.3, vel: 1.1 }
     },
@@ -65,7 +65,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         { n: 'Besta', b: 5, d: '1d8+3', alc: 8, anim: 'besta', fx: 'virote' },
         { n: 'Faca de caça', b: 5, d: '1d4+3', alc: 1, anim: 'golpe' }
       ],
-      habs: ['marca', 'balsamo'],
+      habs: ['marca', 'balsamo', 'chuva'],
       voz: { tom: 0.95, vel: 0.95 }
     }
   };
@@ -84,6 +84,12 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     balsamo: { n: 'Bálsamo de Ervas', ic: 'leaf', custo: 'acao', usos: 1, alvo: 'aliado', alc: 1, cura: '1d8+2', desc: 'Cura um aliado ao lado (ou você): 1d8+2.' },
     levantar: { n: 'Levantar aliado', ic: 'hand-helping', custo: 'acao', usos: null, alvo: 'caido', alc: 1, desc: 'Ajuda um aliado caído a voltar com 1 PV.' },
     esquivar: { n: 'Esquivar', ic: 'shield', custo: 'acao', usos: null, alvo: 'si', desc: 'Até seu próximo turno, ataques contra você têm desvantagem.' },
+    // nível 4
+    surto: { n: 'Surto de Ação', ic: 'zap', custo: 'bonus', usos: 1, alvo: 'si', nivel: 4, desc: 'Ganha uma ação extra neste turno.' },
+    giro: { n: 'Golpe Giratório', ic: 'rotate-cw', custo: 'acao', usos: 1, alvo: 'si', nivel: 4, desc: 'Ataca todos os inimigos ao seu redor.' },
+    bola: { n: 'Bola de Fogo', ic: 'flame', custo: 'acao', carga: true, alvo: 'inimigo', alc: 6, raio: 1, salva: { atr: 'des', cd: 14 }, dano: '4d6', fx: 'bola', nivel: 4, desc: 'Explode no alvo e ao redor: 4d6 de fogo (metade se resistirem). Gasta 1 magia.' },
+    veneno: { n: 'Lâmina Envenenada', ic: 'droplets', custo: 'bonus', usos: 2, alvo: 'si', nivel: 4, desc: 'Seu próximo acerto causa +2d6.' },
+    chuva: { n: 'Chuva de Virotes', ic: 'cloud-hail', custo: 'acao', usos: 1, alvo: 'inimigo', alc: 8, raio: 1, salva: { atr: 'des', cd: 13 }, dano: '2d8', fx: 'chuva', nivel: 4, desc: 'Atinge o alvo e quem estiver ao lado dele: 2d8 (metade se resistirem).' },
     procurar: { n: 'Procurar', ic: 'search', custo: 'acao', usos: null, alvo: 'si', desc: 'Teste de Percepção: revela armadilhas e segredos por perto.' }
   };
   R.HABS_COMUNS = ['esquivar', 'levantar', 'procurar'];
@@ -128,6 +134,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       ataques: [{ n: 'Machado tumular', b: 5, d: '1d10+3', alc: 1, anim: 'golpe2', tipo: 'necro' }],
       falas: ['Ninguém perturba o sono do Rei.', 'Ajoelhem-se diante da morte.'] },
     vorag: { nome: 'Vorag, o Sineiro', vis: 'vorag', pv: 45, ca: 13, desl: 4, xp: 400, mv: true, chefe: true, iniciativa: 3,
+      invoca: { tipo: 'ossudo', cada: 2, max: 4, semFlag: 'sino_quebrado', perto: 'sino', som: 'sino', texto: 'Vorag puxa a corda do sino. DONG. Os mortos se levantam!' },
       ataques: [
         { n: 'Raio Necrótico', b: 5, d: '2d8', alc: 6, anim: 'magia', fx: 'necro', tipo: 'necro' },
         { n: 'Toque gélido', b: 5, d: '1d8+3', alc: 1, anim: 'golpe', tipo: 'necro' }
@@ -266,8 +273,8 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         'TT.TT.TT'
       ],
       legenda: {
-        T: { b: 1, o: 1, m: 'trees_A_large', s: 0.95, var: ['trees_A_large', 'tree_single_A', 'trees_A_medium'] },
-        R: { b: 1, m: 'rock_single_A', s: 0.8, var: ['rock_single_A', 'rock_single_C', 'rock_single_E'] }
+        T: { b: 1, o: 1, m: 'nat:Pine_1', s: 1.0, var: ['nat:Pine_1', 'nat:Pine_2', 'nat:Pine_3', 'nat:Pine_4', 'nat:Pine_5'] },
+        R: { b: 1, m: 'nat:Rock_Medium_1', s: 0.85, var: ['nat:Rock_Medium_1', 'nat:Rock_Medium_2', 'nat:Rock_Medium_3'] }
       },
       entrada: [[0, 2], [0, 3], [1, 3], [0, 1], [1, 2]],
       saida: [7, 2],
@@ -327,11 +334,11 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         'TT.TTTST'
       ],
       legenda: {
-        T: { b: 1, o: 1, m: 'trees_A_large', s: 0.95, var: ['trees_A_large', 'tree_single_A', 'trees_A_medium'] },
+        T: { b: 1, o: 1, m: 'nat:Pine_1', s: 1.0, var: ['nat:Pine_1', 'nat:Pine_2', 'nat:Pine_3', 'nat:Pine_4', 'nat:Pine_5'] },
         t: { b: 1, o: 1, m: 'tent', s: 1.0 },
         F: { b: 1, m: '@fogueira', s: 0.8 },
         X: { b: 1, m: 'crate_A_big', s: 0.7, var: ['crate_A_big', 'barrel', 'resource_lumber'] },
-        R: { b: 1, m: 'rock_single_C', s: 0.8 }
+        R: { b: 1, m: 'nat:Rock_Medium_2', s: 0.85 }
       },
       entrada: [[0, 2], [0, 3], [1, 3], [1, 2], [2, 3]],
       saida: [6, 5],
@@ -404,7 +411,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         '....~~.S'
       ],
       legenda: {
-        T: { b: 1, o: 1, m: 'tree_dead_large', s: 1.0, var: ['tree_dead_large', 'tree_dead_medium'] },
+        T: { b: 1, o: 1, m: 'nat:Dead_Tree_1', s: 1.05, var: ['nat:Dead_Tree_1', 'nat:Dead_Tree_2', 'nat:Dead_Tree_3'] },
         H: { b: 1, o: 1, m: 'building_home_B_green', s: 1.9, dx: 0.5 },
         h: { b: 1, o: 1 },
         A: { b: 1, m: 'shrine_candles', s: 0.8 }
@@ -632,5 +639,16 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     else t.push('No pântano, Mãe Lodo ri sozinha. Ela sabe que o Rei Corvo não estava inteiro naquele sino.');
     t.push('Fim do Capítulo I: A Noite do Sino Morto.');
     return t;
+  };
+
+  // Capítulos: cada mesa joga um. O Capítulo II fica em campanha2.js.
+  R.CAPITULOS = R.CAPITULOS || {};
+  R.CAPITULOS.sino = {
+    id: 'sino', num: 'I', titulo: 'A Noite do Sino Morto', nivelInicial: 1,
+    resumo: 'Pedrafria, noite de nevasca. Um sino toca sozinho e, a cada badalada, alguém desaparece.',
+    cenas: R.CENAS, epilogo: R.EPILOGO,
+    // escolhas que o Capítulo II lembra (viram c1_...)
+    lembrar: ['edvin_vivo', 'paz_garra', 'promessa_cranio', 'liv_livre', 'sino_quebrado', 'segredo_sino'],
+    proximo: 'coroa'
   };
 })(RUNA);

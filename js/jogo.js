@@ -11,8 +11,21 @@ const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 const icones = () => window.lucide && window.lucide.createIcons();
 
 const sala = (new URLSearchParams(location.search).get('sala') || '').toUpperCase();
-const EU = Rede.meuId();
+const SESSAO = Rede.sessao();
+const EU = SESSAO ? SESSAO.conta.id : null;
 const ICONE_CLASSE = { guerreiro: 'shield', barbara: 'axe', maga: 'wand-sparkles', ladina: 'venetian-mask', cacadora: 'crosshair' };
+const ANIMAIS = new Set(['lobo', 'aranha', 'aranha_mae', 'rato', 'troll', 'golem']);
+// Retrato ilustrado (assets/retratos); se a imagem faltar, fica o ícone da classe.
+function retrato(classe, extra = '', icone) {
+  return `<div class="retrato ${extra}"><img src="assets/retratos/${classe}.webp" alt="" onerror="this.remove()"><i data-lucide="${icone || ICONE_CLASSE[classe] || 'user'}"></i></div>`;
+}
+// rosto de quem fala (NPCs e vilões têm retrato pelo nome do visual)
+const RETRATO_VIS = { troll: 'gorm', garra: 'garra' };
+function retratoDe(u) {
+  if (!u) return retrato('', '', 'message-circle');
+  if (u.lado === 'heroi') return retrato(u.classe);
+  return retrato(RETRATO_VIS[u.vis] || u.vis, '', 'message-circle');
+}
 
 let con, mundo, rast = null;
 let E = null, ultimoSeq = 0, fila = [], tocando = false, pulando = false;
@@ -28,7 +41,8 @@ function salvarPrefs() { try { localStorage.setItem('runa_prefs', JSON.stringify
 
 // ================================================================ início
 async function iniciar() {
-  if (!Rede.codigoValido(sala)) { location.href = 'index.html'; return; }
+  if (!Rede.codigoValido(sala)) { location.href = 'conta.html'; return; }
+  if (!SESSAO) { location.href = 'conta.html?volta=' + encodeURIComponent('jogo.html?sala=' + sala); return; }
   icones();
   mundo = new Mundo($('#cena3d'));
   con = new Rede.Conexao(sala);
@@ -39,14 +53,15 @@ async function iniciar() {
   } catch (e) {
     return falhaFatal('Não foi possível carregar os modelos 3D. Verifique a internet e recarregue a página.');
   }
-  carga('Abrindo a mesa ' + sala + '...', 0.8);
-  try { await con.abrir(); } catch (e) { return falhaFatal(e.message); }
-  if (!E.jogadores[EU]) {
-    let nome = Rede.meuNome();
-    if (!nome) nome = await pedirNome();
-    const r = await con.enviar({ t: 'entrar', nome });
-    if (!r.ok) return falhaFatal(r.erro);
-  }
+  carga('Abrindo a campanha ' + sala + '...', 0.8);
+  try {
+    let r = await con.abrir();
+    if (r.naoMembro) {
+      await telaConvite();
+      r = await con.abrir();
+      if (r.naoMembro) return falhaFatal('Não foi possível entrar na campanha.');
+    }
+  } catch (e) { return falhaFatal(e.message); }
   if (prefs.voz == null) prefs.voz = E.host === EU;
   Som.configurar({ sons: prefs.sons, voz: prefs.voz });
   carga('Pronto.', 1);
@@ -64,19 +79,32 @@ async function iniciar() {
 function carga(txt, p) { $('#carga-txt').textContent = txt; $('#carga-barra').style.width = Math.round(p * 100) + '%'; }
 function falhaFatal(msg) {
   $('#carregando').hidden = false;
-  $('#carregando').innerHTML = `<div class="miolo" style="text-align:center;max-width:460px"><div class="marca" style="font-size:2.2rem">RUNA</div><p>${esc(msg)}</p><a class="btn ouro" href="index.html">Voltar ao início</a></div>`;
+  $('#carregando').innerHTML = `<div class="miolo" style="text-align:center;max-width:460px"><div class="marca" style="font-size:2.2rem">RUNA</div><p>${esc(msg)}</p><a class="btn ouro" href="conta.html">Minhas campanhas</a></div>`;
 }
-function pedirNome() {
+// Quem abriu o link do convite e ainda não está na campanha.
+async function telaConvite() {
+  const pv = await Rede.previa(sala);
+  if (!pv.ok) throw new Error(pv.erro);
+  const m = pv.mesa;
+  const telaCarga = $('#carregando').innerHTML;
   return new Promise((ok) => {
-    const t = $('#carregando');
-    t.innerHTML = `<div class="miolo painel ornato" style="max-width:420px;padding:22px;text-align:left">
-      <h2>Mesa ${esc(sala)}</h2><p style="color:var(--texto2)">Como os outros jogadores vão te chamar?</p>
-      <div class="campo"><label for="nm">Seu nome</label><input id="nm" maxlength="24" autocomplete="nickname" placeholder="Ex.: Cambraia"></div>
-      <button class="btn ouro" id="nm-ok" style="width:100%">Sentar à mesa</button></div>`;
-    const ir = () => { const n = $('#nm').value.trim(); if (!n) return $('#nm').focus(); Rede.salvarNome(n); ok(n); };
-    $('#nm-ok').onclick = ir;
-    $('#nm').onkeydown = (e) => { if (e.key === 'Enter') ir(); };
-    $('#nm').focus();
+    $('#carregando').innerHTML = `<div class="miolo painel ornato convite" style="max-width:460px;padding:24px;text-align:left">
+      <div class="marca" style="font-size:1.6rem">RUNA</div>
+      <p class="sobretitulo">Convite para a campanha ${esc(sala)}</p>
+      <h2>Capítulo ${esc(m.capNum)}: ${esc(m.capTitulo)}</h2>
+      <p><b>${esc(m.anfitriao)}</b> está montando o grupo. ${m.fase === 'lobby' ? 'Vocês ainda estão escolhendo os heróis.' : m.fase === 'fim' ? 'Esta campanha já terminou.' : 'A aventura já começou: ' + esc(m.cena) + '.'}</p>
+      ${m.jogadores.length ? `<div class="jogadores">${m.jogadores.map((j) => `<span>${esc(j)}</span>`).join('')}</div>` : ''}
+      <p style="color:var(--texto2);font-size:.9rem">Você entra como <b>${esc(SESSAO.conta.apelido)}</b>. A campanha fica salva na sua conta para continuar outro dia.</p>
+      ${m.cheia ? '<p class="msg erro">A campanha está cheia.</p>' : `<button class="btn ouro" id="bt-aceitar" style="width:100%"><i data-lucide="door-open"></i> Entrar na campanha</button>`}
+      <p class="msg erro" id="conv-msg"></p>
+      <a class="btn fantasma pequeno" href="conta.html" style="margin-top:8px">Agora não</a></div>`;
+    icones();
+    const b = $('#bt-aceitar');
+    if (b) b.onclick = async () => {
+      b.disabled = true;
+      const r = await con.enviar({ t: 'entrar' });
+      if (r.ok) { $('#carregando').innerHTML = telaCarga; ok(); } else { $('#conv-msg').textContent = r.erro; b.disabled = false; }
+    };
   });
 }
 
@@ -123,6 +151,9 @@ function vozDe(ev) {
   const npc = Object.values(R.NPCS).find((n) => n.vis === ev.vis);
   if (npc) return npc.voz;
   if (ev.vis === 'vorag') return { tom: 0.35, vel: 0.8 };
+  if (ev.vis === 'rei_corvo') return { tom: 0.3, vel: 0.75 };
+  if (ev.vis === 'corvina') return { tom: 1.3, vel: 0.9 };
+  if (ev.vis === 'golem' || ev.vis === 'troll') return { tom: 0.2, vel: 0.7 };
   if (ev.vis === 'cavaleiro') return { tom: 0.4, vel: 0.85 };
   return { tom: 0.7, vel: 0.92 };
 }
@@ -131,7 +162,7 @@ async function tratar(ev, rapido) {
   registrar(ev);
   switch (ev.t) {
     case 'cena': {
-      const c = R.CENAS[ev.idx];
+      const c = R.cenasDe(E)[ev.idx];
       await mundo.montarCena(c, E);
       await mundo.sincronizar(E, R);
       Som.ambienteDe(c.tema);
@@ -179,7 +210,7 @@ async function tratar(ev, rapido) {
     case 'saida': toast('Caminho livre: vá até a casa ' + R.nomeCasa(ev.x, ev.y) + ' e toque em Seguir viagem.'); return;
     case 'som': Som.sfx(ev.som); return mundo.animar(ev, E);
     case 'hab': {
-      const s = { fogo: null, misseis: 'magia', trovao: 'trovao', furia: 'combate', pocao: 'cura', balsamo: 'cura', folego: 'cura', marca: 'virote' }[ev.fx];
+      const s = { fogo: null, bola: 'fogo', chuva: 'virote', misseis: 'magia', trovao: 'trovao', furia: 'combate', surto: 'combate', giro: 'aco', veneno: 'moeda', pocao: 'cura', balsamo: 'cura', folego: 'cura', marca: 'virote' }[ev.fx];
       if (s) Som.sfx(s);
       if (!rapido) toast(nomeDe(ev.de) + ': ' + ev.nome);
       return mundo.animar(ev, E);
@@ -252,7 +283,7 @@ async function legenda(texto, voz, fixa, mestre) {
 }
 async function balao(ev) {
   const u = E.u[ev.quem];
-  const lado = u ? u.lado : (ev.vis && /ossudo|vorag|cavaleiro|lobo|afogado|bandido|garra|besteiro|arqueiro/.test(ev.vis) ? 'inimigo' : 'npc');
+  const lado = u ? u.lado : (ev.vis && Object.values(R.MONSTROS).some((m) => m.vis === ev.vis) ? 'inimigo' : 'npc');
   const b = document.createElement('div');
   b.className = 'balao ' + (lado === 'heroi' ? 'heroi' : lado === 'inimigo' ? 'inimigo' : '');
   b.innerHTML = '<b>' + esc(ev.nome) + '</b>' + esc(ev.texto);
@@ -299,11 +330,11 @@ function atualizarTudo(parcial) {
   if (lobby) { renderLobby(); return; }
   if (E.fase === 'fim' && !tocando && $('#final').hidden && !parcial) {
     const f = [...E.eventos].reverse().find((v) => v.t === 'final');
-    mostrarFinal(f ? f.textos : R.EPILOGO(E.flags));
+    mostrarFinal(f ? f.textos : R.capitulo(E).epilogo(E.flags));
   }
   const c = R.cena(E);
   $('#cena-titulo').textContent = c ? c.titulo : 'RUNA';
-  $('#cena-sub').textContent = c ? c.sub + ' · Mesa ' + sala : 'Mesa ' + sala;
+  $('#cena-sub').textContent = (c ? c.sub + ' · ' : '') + 'Cap. ' + R.capitulo(E).num + ' · ' + sala;
   const ob = $('#objetivo');
   ob.hidden = !E.objetivo;
   ob.querySelector('span').textContent = E.objetivo || '';
@@ -328,7 +359,8 @@ function minhaVez(h) { return h && (!E.combate || R.vezDe(E) === h.id) && !h.cai
 
 // ---------------------------------------------------------------- lobby
 function renderLobby() {
-  const link = location.origin + location.pathname + '?sala=' + sala;
+  const link = Rede.linkConvite(sala);
+  const cap = R.capitulo(E);
   const host = E.host === EU;
   const jog = Object.entries(E.jogadores).map(([id, j]) => `<span>${esc(j.nome)}${id === E.host ? ' <small style="color:var(--ouro)">anfitrião</small>' : ''}${id === EU ? ' (você)' : ''}</span>`).join('');
   const cards = Object.entries(R.CLASSES).map(([k, c]) => {
@@ -336,10 +368,10 @@ function renderLobby() {
     const meu = h && h.dono === EU, outro = h && !meu;
     const a = c.atr;
     return `<article class="card-heroi painel ornato ${meu ? 'meu' : outro ? 'outro' : ''}">
-      <header><div class="retrato"><i data-lucide="${ICONE_CLASSE[k]}"></i></div><div><h3>${esc(h ? h.nome : c.heroi)}</h3><p>${esc(c.nome)}</p></div></header>
+      <header>${retrato(k)}<div><h3>${esc(h ? h.nome : c.heroi)}</h3><p>${esc(c.nome)}${E.nivel > 1 ? ' · nível ' + E.nivel : ''}</p></div></header>
       <p>${esc(c.desc)}</p>
       <p class="frase">"${esc(c.frase)}"</p>
-      <div class="stats"><span>PV <b>${c.pv}</b></span><span>CA <b>${c.ca}</b></span><span>Mov <b>${c.desl}</b></span><span>FOR <b>${R.modTxt(a.for)}</b></span><span>DES <b>${R.modTxt(a.des)}</b></span><span>INT <b>${R.modTxt(a.int)}</b></span></div>
+      <div class="stats"><span>PV <b>${c.pv + (E.nivel - 1) * c.pvNivel}</b></span><span>CA <b>${c.ca}</b></span><span>Mov <b>${c.desl}</b></span><span>FOR <b>${R.modTxt(a.for)}</b></span><span>DES <b>${R.modTxt(a.des)}</b></span><span>INT <b>${R.modTxt(a.int)}</b></span></div>
       ${meu ? `<div class="campo" style="margin:4px 0 0"><input data-nome="${k}" maxlength="18" value="${esc(h.nome)}" aria-label="Nome do herói"></div>
                <button class="btn pequeno fantasma" data-soltar="${k}">Trocar de herói</button>`
         : outro ? `<p style="color:var(--ouro)">Escolhido por ${esc((E.jogadores[h.dono] || {}).nome || '?')}</p>`
@@ -348,15 +380,18 @@ function renderLobby() {
   }).join('');
   const qtd = E.ordemHerois.length;
   $('#lobby-miolo').innerHTML = `
-    <div style="text-align:center;margin-bottom:14px"><div class="marca" style="font-size:2.2rem">RUNA</div><p style="color:var(--texto2);margin:0">A Noite do Sino Morto · Capítulo I</p></div>
+    <div style="text-align:center;margin-bottom:14px"><a class="marca" href="conta.html" style="font-size:2.2rem;text-decoration:none">RUNA</a><p style="color:var(--texto2);margin:0">Capítulo ${esc(cap.num)} · ${esc(cap.titulo)}</p></div>
+    ${E.origem ? `<p class="painel" style="padding:10px 14px;font-size:.9rem;color:var(--texto2)"><i data-lucide="scroll-text"></i> O grupo do Capítulo I continua aqui: mesmos heróis, nível ${E.nivel}, ${E.ouro} moedas e as escolhas que vocês fizeram.</p>` : ''}
     <div class="codigo-mesa painel ornato">
       <div id="qr"></div>
-      <div style="flex:1;min-width:200px"><div style="color:var(--texto2);font-size:.85rem">Código da mesa</div><div class="cod">${sala}</div>
-        <p style="margin:4px 0 10px;font-size:.88rem;color:var(--texto2)">Os outros jogadores escaneiam o QR ou abrem o link no próprio celular.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pequeno" id="bt-link"><i data-lucide="share-2"></i> Compartilhar link</button><a class="btn pequeno fantasma" href="imprimir.html" target="_blank"><i data-lucide="printer"></i> Imprimir tabuleiro</a></div>
+      <div style="flex:1;min-width:200px"><div style="color:var(--texto2);font-size:.85rem">Convide o grupo</div><div class="cod">${sala}</div>
+        <p style="margin:4px 0 10px;font-size:.88rem;color:var(--texto2)">Quem estiver ao seu lado escaneia o QR. De longe, mande o link. Cada pessoa entra com a própria conta, e a campanha fica salva para continuar outro dia.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pequeno" id="bt-link"><i data-lucide="share-2"></i> Compartilhar link</button>
+          <a class="btn pequeno" id="bt-zap" target="_blank" rel="noopener"><i data-lucide="message-circle"></i> WhatsApp</a>
+          <a class="btn pequeno fantasma" href="imprimir.html" target="_blank"><i data-lucide="printer"></i> Imprimir tabuleiro</a></div>
+        <form id="f-convite" class="linha-convite"><input type="email" id="conv-email" placeholder="ou convide por e-mail" autocomplete="off" required><button class="btn pequeno">Enviar</button></form>
       </div>
     </div>
-    ${Rede.remoto ? '' : `<p class="painel" style="padding:10px 14px;font-size:.88rem;color:var(--texto2)"><i data-lucide="info"></i> Modo local: sem servidor configurado, a mesa existe só neste navegador. Para jogar cada um no seu celular, configure o Google Apps Script (veja o GUIA). Dá para testar abrindo esta mesma página em outra aba.</p>`}
     <h3>Na mesa</h3><div class="jogadores">${jog}</div>
     <h3>Escolha seu herói</h3>
     <p style="color:var(--texto2);margin-top:-4px">Cada jogador escolhe um. Quem estiver sozinho pode controlar mais de um herói.</p>
@@ -368,8 +403,16 @@ function renderLobby() {
     </div>`;
   if (window.qrcode) { const q = window.qrcode(0, 'M'); q.addData(link); q.make(); $('#qr').innerHTML = q.createImgTag(4, 6, 'QR code da mesa'); }
   icones();
+  const texto = 'Bora jogar RUNA comigo? Capítulo ' + cap.num + ': ' + cap.titulo + '. Entra pela minha campanha: ';
   $('#bt-link').onclick = async () => {
-    try { if (navigator.share) await navigator.share({ title: 'RUNA — mesa ' + sala, text: 'Entra na minha mesa de RUNA: ', url: link }); else { await navigator.clipboard.writeText(link); toast('Link copiado.'); } } catch (e) { /* cancelado */ }
+    try { if (navigator.share) await navigator.share({ title: 'RUNA — campanha ' + sala, text: texto, url: link }); else { await navigator.clipboard.writeText(link); toast('Link copiado.'); } } catch (e) { /* cancelado */ }
+  };
+  $('#bt-zap').href = 'https://wa.me/?text=' + encodeURIComponent(texto + link);
+  $('#f-convite').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const em = $('#conv-email').value.trim();
+    const r = await Rede.convidar(sala, em).catch((e) => ({ ok: false, erro: e.message }));
+    if (r.ok) { toast('Convite enviado para ' + em + '.'); $('#conv-email').value = ''; } else toast(r.erro, true);
   };
   document.querySelectorAll('[data-escolher]').forEach((b) => b.onclick = () => { Som.destravar(); enviar({ t: 'escolher', classe: b.dataset.escolher }); });
   document.querySelectorAll('[data-soltar]').forEach((b) => b.onclick = () => enviar({ t: 'soltar', classe: b.dataset.soltar }));
@@ -385,8 +428,8 @@ function renderOrdem() {
   const vez = R.vezDe(E);
   o.innerHTML = E.combate.ordem.filter((id) => E.u[id]).map((id) => {
     const u = E.u[id];
-    const ic = u.lado === 'heroi' ? ICONE_CLASSE[u.classe] : u.tipo === 'lobo' ? 'paw-print' : 'skull';
-    return `<span class="chip-ordem ${u.lado} ${id === vez ? 'atual' : ''} ${u.caido ? 'caido' : ''}"><i data-lucide="${ic}"></i>${esc(u.nome.split(/[ ,]/)[0])}</span>`;
+    const ic = u.lado === 'heroi' ? ICONE_CLASSE[u.classe] : ANIMAIS.has(u.tipo) ? 'paw-print' : 'skull';
+    return `<span class="chip-ordem ${u.lado} ${id === vez ? 'atual' : ''} ${u.caido ? 'caido' : ''}"><i data-lucide="${ic}"></i>${esc(u.nome.replace(/^(O|A|Os|As) /, '').split(/[ ,]/)[0])}</span>`;
   }).join('') + `<span class="chip-ordem">Rodada ${E.combate.rodada}</span>`;
   icones();
 }
@@ -411,9 +454,10 @@ function renderHud() {
   if (h.efeitos.furia) ef.push('<span style="color:#ff7a5a"><i data-lucide="flame"></i>Fúria</span>');
   if (h.efeitos.esquiva) ef.push('<span style="color:var(--gelo)"><i data-lucide="shield"></i>Esquivando</span>');
   if (h.efeitos.marca && E.u[h.efeitos.marca]) ef.push('<span><i data-lucide="crosshair"></i>' + esc(E.u[h.efeitos.marca].nome) + '</span>');
+  if (h.efeitos.veneno) ef.push('<span style="color:#9aff6a"><i data-lucide="droplets"></i>Veneno</span>');
   const outros = meusHerois().filter((o) => o.id !== h.id);
   ficha.innerHTML = `
-    <div class="retrato ${h.caido ? 'caido' : ''}"><i data-lucide="${h.caido ? 'skull' : ICONE_CLASSE[h.classe]}"></i></div>
+    <button class="retrato-botao" id="bt-ficha" aria-label="Abrir a ficha de ${esc(h.nome)}">${retrato(h.classe, h.caido ? 'caido' : '')}<span class="selo-ficha"><i data-lucide="scroll-text"></i></span></button>
     <div class="ficha-dados">
       <div class="ficha-nome"><b>${esc(h.nome)}</b><span>${esc(cls.nome)} · nível ${E.nivel}</span></div>
       <div class="barra-pv ${f <= 0.25 ? 'baixo' : f <= 0.5 ? 'medio' : ''}"><i style="width:${Math.max(0, f * 100)}%"></i><em>${h.pv} / ${h.pvMax} PV</em></div>
@@ -449,6 +493,7 @@ function renderHud() {
   on('bt-confirma-mover', () => { const [x, y] = sel.previa.split(',').map(Number); limparSelecao(); enviar({ t: 'mover', heroi: h.id, x, y }); });
   on('bt-cancela', () => { limparSelecao(); atualizarTudo(); });
   on('bt-habs', () => abrirHabilidades(h));
+  on('bt-ficha', () => abrirFichaCompleta(h.id));
   on('bt-pocao', () => usarPocao(h));
   on('bt-seguir', () => enviar({ t: 'sair', heroi: h.id }));
   on('bt-fim', () => { limparSelecao(); enviar({ t: 'fimTurno', heroi: h.id }); });
@@ -473,7 +518,7 @@ function renderDialogo() {
     }
     return `<button class="dlg-op" data-op="${i}" ${!meu || o.bloq ? 'disabled' : ''}>${t}${o.bloq ? ' <small>(falta o necessário)</small>' : ''}</button>`;
   }).join('');
-  box.innerHTML = `<div class="dlg-quem"><div class="retrato" style="width:40px;height:40px;font-size:1.1rem"><i data-lucide="message-circle"></i></div><div><b>${esc(npc ? npc.nome : '')}</b><br><span>${meu ? 'Você fala por ' + esc(h.nome) : esc(h ? h.nome : '') + ' está conversando'}</span></div></div>
+  box.innerHTML = `<div class="dlg-quem">${retratoDe(npc)}<div><b>${esc(npc ? npc.nome : '')}</b><br><span>${meu ? 'Você fala por ' + esc(h.nome) : esc(h ? h.nome : '') + ' está conversando'}</span></div></div>
     <p class="dlg-fala">"${esc(d.fala)}"</p>
     <div class="dlg-opcoes">${ops}</div>
     ${meu ? '<div style="text-align:right;margin-top:10px"><button class="btn pequeno fantasma" id="bt-sai-dlg">Encerrar conversa</button></div>' : '<p class="dlg-espera">As escolhas são de quem iniciou a conversa.</p>'}`;
@@ -759,7 +804,8 @@ function abrirMenu() {
       <button class="btn" id="bt-copiar"><i data-lucide="link"></i> Copiar link</button>
       <a class="btn" href="imprimir.html" target="_blank"><i data-lucide="printer"></i> Imprimir tabuleiro</a>
       <button class="btn" id="bt-ajuda"><i data-lucide="circle-help"></i> Como jogar</button>
-      <a class="btn fantasma" href="index.html"><i data-lucide="log-out"></i> Sair</a>
+      <button class="btn" id="bt-menu-ficha"><i data-lucide="scroll-text"></i> Fichas do grupo</button>
+      <a class="btn fantasma" href="conta.html"><i data-lucide="log-out"></i> Minhas campanhas</a>
     </div>
     ${host ? `<h3 style="margin-top:22px">Ferramentas do mestre</h3>
     <div class="painel ornato" style="padding:14px 16px">
@@ -770,7 +816,7 @@ function abrirMenu() {
         <button class="btn pequeno" id="m-curar"><i data-lucide="heart"></i> Curar o grupo</button>
         <button class="btn pequeno perigo" id="m-reiniciar"><i data-lucide="rotate-ccw"></i> Reiniciar a cena</button>
       </div>
-      <div class="campo" style="margin-top:12px"><label for="m-cena">Ir para a cena</label><select id="m-cena">${R.CENAS.map((c, i) => `<option value="${i}" ${i === E.cenaIdx ? 'selected' : ''}>${i + 1}. ${esc(c.titulo)}</option>`).join('')}</select></div>
+      <div class="campo" style="margin-top:12px"><label for="m-cena">Ir para a cena</label><select id="m-cena">${R.cenasDe(E).map((c, i) => `<option value="${i}" ${i === E.cenaIdx ? 'selected' : ''}>${i + 1}. ${esc(c.titulo)}</option>`).join('')}</select></div>
       <button class="btn pequeno" id="m-ir"><i data-lucide="map"></i> Ir</button>
     </div>` : ''}
     <div id="ajuda" class="painel ornato" style="padding:16px;margin-top:18px" hidden>${AJUDA}</div>`;
@@ -781,7 +827,8 @@ function abrirMenu() {
   $('#op-voz').onchange = (e) => { prefs.voz = e.target.checked; salvarPrefs(); Som.configurar({ voz: prefs.voz }); if (prefs.voz) Som.falar('A voz do narrador está ligada.', R.NARRADOR.voz); };
   $('#op-sons').onchange = (e) => { prefs.sons = e.target.checked; salvarPrefs(); Som.configurar({ sons: prefs.sons }); };
   $('#op-lente').oninput = (e) => { prefs.lente = +e.target.value; salvarPrefs(); if (rast) rast.ajusteLente = prefs.lente; };
-  $('#bt-copiar').onclick = async () => { try { await navigator.clipboard.writeText(location.origin + location.pathname + '?sala=' + sala); toast('Link copiado.'); } catch (e) { toast('Não deu para copiar.', true); } };
+  $('#bt-copiar').onclick = async () => { try { await navigator.clipboard.writeText(Rede.linkConvite(sala)); toast('Link copiado.'); } catch (e) { toast('Não deu para copiar.', true); } };
+  $('#bt-menu-ficha').onclick = () => { $('#menu').hidden = true; abrirFichaCompleta((heroiAtivo() || R.herois(E)[0] || {}).id); };
   $('#bt-ajuda').onclick = () => { $('#ajuda').hidden = !$('#ajuda').hidden; };
   document.querySelectorAll('[data-entrar]').forEach((b) => b.onclick = async () => { const r = await enviar({ t: 'escolher', classe: b.dataset.entrar }); if (r.ok) $('#menu').hidden = true; });
   if (host) {
@@ -802,15 +849,90 @@ const AJUDA = `<h3>Como jogar</h3>
 
 function mostrarFinal(textos) {
   if (!$('#final').hidden) return;
-  $('#final-miolo').innerHTML = `<div style="text-align:center"><div class="marca" style="font-size:2.4rem">RUNA</div><h2>A Noite do Sino Morto</h2></div>
+  const cap = R.capitulo(E);
+  const prox = cap.proximo && R.CAPITULOS[cap.proximo];
+  const host = E.host === EU;
+  const seguir = E.continuacao ? `<a class="btn ouro" href="jogo.html?sala=${esc(E.continuacao)}"><i data-lucide="arrow-right"></i> Ir para o Capítulo ${esc(prox ? prox.num : '')}</a>`
+    : prox && host ? `<button class="btn ouro" id="bt-continuar"><i data-lucide="arrow-right"></i> Continuar no Capítulo ${esc(prox.num)} com este grupo</button>`
+      : prox ? `<p style="color:var(--texto2);width:100%;text-align:center">${esc((E.jogadores[E.host] || {}).nome || 'O anfitrião')} pode levar o grupo para o Capítulo ${esc(prox.num)}.</p>`
+        : `<a class="btn ouro" href="index.html#capitulo3"><i data-lucide="bell"></i> Quero o próximo capítulo</a>`;
+  $('#final-miolo').innerHTML = `<div style="text-align:center"><div class="marca" style="font-size:2.4rem">RUNA</div><p class="sobretitulo">Capítulo ${esc(cap.num)}</p><h2>${esc(cap.titulo)}</h2></div>
     <div class="painel ornato epilogo" style="padding:20px 22px;margin:16px 0">${textos.map((t) => `<p>${esc(t)}</p>`).join('')}</div>
     <div class="painel" style="padding:14px 18px"><b>O grupo</b><div class="jogadores">${R.herois(E).map((h) => `<span>${esc(h.nome)}, ${esc(R.CLASSES[h.classe].nome)}</span>`).join('')}</div>
       <p style="margin:0;color:var(--texto2)">Nível ${E.nivel} · ${E.xp} de experiência · ${E.ouro} moedas de prata</p></div>
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap"><a class="btn ouro" href="index.html#capitulo2"><i data-lucide="bell"></i> Quero o Capítulo II</a><button class="btn" id="bt-ver-mesa">Ver o tabuleiro</button></div>`;
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap">${seguir}<button class="btn" id="bt-ver-mesa">Ver o tabuleiro</button><a class="btn fantasma" href="conta.html">Minhas campanhas</a></div>`;
   $('#final').hidden = false;
   icones();
   $('#bt-ver-mesa').onclick = () => { $('#final').hidden = true; };
+  const bc = $('#bt-continuar');
+  if (bc) bc.onclick = async () => {
+    bc.disabled = true; bc.textContent = 'Preparando o próximo capítulo...';
+    try { const s = await Rede.criarMesa({ deMesa: sala }); location.href = 'jogo.html?sala=' + s; }
+    catch (e) { toast(e.message, true); bc.disabled = false; }
+  };
   if (prefs.voz) Som.falar(textos.join(' '), R.NARRADOR.voz);
+}
+
+// ================================================================ ficha do personagem
+const ROTULO_ATR = { for: 'Força', des: 'Destreza', con: 'Constituição', int: 'Inteligência', sab: 'Sabedoria', car: 'Carisma' };
+function abrirFichaCompleta(id) {
+  const hs = R.herois(E);
+  const h = E.u[id] || hs[0];
+  if (!h) { toast('Ninguém escolheu herói ainda.'); return; }
+  const c = R.CLASSES[h.classe];
+  const nv = h.nivel || E.nivel;
+  const prox = R.XP_NIVEL[nv] || null, ant = R.XP_NIVEL[nv - 1] || 0;
+  const fxp = prox ? Math.min(1, (E.xp - ant) / (prox - ant)) : 1;
+  const bn = R.bonusNivel(E) + (E.flags.lamina_estelar ? 1 : 0);
+  const dono = (E.jogadores[h.dono] || {}).nome || '?';
+  const habs = c.habs.concat(R.HABS_COMUNS).map((k) => {
+    const hb = R.HABS[k], travada = hb.nivel && nv < hb.nivel;
+    const usos = hb.usos ? `${h.usos[k] != null ? h.usos[k] : hb.usos} uso${(h.usos[k] != null ? h.usos[k] : hb.usos) === 1 ? '' : 's'} por cena` : hb.carga ? 'gasta magia' : 'à vontade';
+    return `<div class="ficha-hab ${travada ? 'travada' : ''}"><i data-lucide="${travada ? 'lock' : hb.ic}"></i><div><b>${esc(hb.n)}</b><small>${esc(hb.desc)}</small></div><span class="tag">${travada ? 'nível ' + hb.nivel : (hb.custo === 'acao' ? 'Ação' : 'Bônus') + ' · ' + usos}</span></div>`;
+  }).join('');
+  const atks = R.ataquesDe(h).map((a) => `<tr><td>${esc(a.n)}</td><td>${R.modTxt(a.b + bn)}</td><td>${esc(a.d)}${bn ? R.modTxt(R.bonusNivel(E)) : ''}${E.flags.lamina_estelar ? ' +1d4' : ''}</td><td>${a.alc === 1 ? 'corpo a corpo' : a.alc + ' casas'}</td></tr>`).join('');
+  const pericias = Object.keys(R.PERICIAS).filter((k) => !/^(for|des|con)$/.test(k)).map((k) => {
+    const prof = c.prof.indexOf(k) >= 0;
+    return `<span class="${prof ? 'prof' : ''}">${prof ? '<i data-lucide="star"></i>' : ''}${esc(R.PERICIAS[k][1])}<b>${R.modTxt(R.bonusPericia(h, k))}</b></span>`;
+  }).join('');
+  const inv = Object.keys(E.inv).map((k) => R.ITENS[k] ? `<div class="ficha-hab"><i data-lucide="${R.ITENS[k].ic}"></i><div><b>${esc(R.ITENS[k].n)}${E.inv[k] > 1 ? ' x' + E.inv[k] : ''}</b><small>${esc(R.ITENS[k].desc)}</small></div></div>` : '').join('') || '<p class="folha-sub">Nada na mochila do grupo.</p>';
+  const ef = [];
+  if (h.efeitos.furia) ef.push('Fúria'); if (h.efeitos.esquiva) ef.push('Esquivando'); if (h.efeitos.veneno) ef.push('Lâmina envenenada'); if (h.caido) ef.push('Caído');
+  if (E.flags.lamina_estelar) ef.push('Armas de aço estelar (+1 e +1d4)');
+  if (h.memoria) ef.push('Perdeu uma lembrança para Mãe Lodo (-' + h.memoria + ' PV máximos)');
+  $('#ficha-miolo').innerHTML = `
+    <div class="cab-lateral"><h2>Ficha</h2><button class="btn btn-icone fantasma" id="bt-fecha-ficha" aria-label="Fechar"><i data-lucide="x"></i></button></div>
+    ${hs.length > 1 ? `<div class="abas-ficha">${hs.map((o) => `<button class="${o.id === h.id ? 'ativa' : ''}" data-ficha="${o.id}">${esc(o.nome)}</button>`).join('')}</div>` : ''}
+    <section class="ficha-topo painel ornato">
+      ${retrato(h.classe, 'grande' + (h.caido ? ' caido' : ''))}
+      <div class="ficha-topo-txt">
+        <h3>${esc(h.nome)}</h3>
+        <p>${esc(c.nome)} · nível ${nv} · jogador: ${esc(dono)}</p>
+        <p class="frase">"${esc(c.frase)}"</p>
+        <div class="barra-xp"><i style="width:${Math.round(fxp * 100)}%"></i><em>${prox ? E.xp + ' / ' + prox + ' XP para o nível ' + (nv + 1) : E.xp + ' XP · nível máximo'}</em></div>
+      </div>
+    </section>
+    <div class="ficha-numeros">
+      <div class="painel"><small>Vida</small><b>${h.pv}<span>/${h.pvMax}</span></b></div>
+      <div class="painel"><small>Armadura</small><b>${h.ca}</b></div>
+      <div class="painel"><small>Movimento</small><b>${h.desl}<span> casas</span></b></div>
+      <div class="painel"><small>Iniciativa</small><b>${R.modTxt(c.atr.des)}</b></div>
+      ${c.magia ? `<div class="painel"><small>Magia</small><b>${h.magia}<span>/${c.magia + R.magiaExtra(nv)}</span></b></div>` : ''}
+      <div class="painel"><small>Bônus de nível</small><b>${R.modTxt(R.bonusNivel(E))}</b></div>
+    </div>
+    <h4>Atributos</h4>
+    <div class="ficha-atr">${['for', 'des', 'con', 'int', 'sab', 'car'].map((k) => `<div class="painel"><small>${ROTULO_ATR[k]}</small><b>${R.modTxt(c.atr[k])}</b></div>`).join('')}</div>
+    <h4>Ataques</h4>
+    <table class="ficha-tabela"><thead><tr><th>Arma</th><th>Acerto</th><th>Dano</th><th>Alcance</th></tr></thead><tbody>${atks}</tbody></table>
+    <h4>Habilidades</h4><div class="lista-acoes">${habs}</div>
+    <h4>Perícias <small>(estrela = treinada, +2)</small></h4><div class="ficha-pericias">${pericias}</div>
+    ${ef.length ? `<h4>Estado</h4><div class="jogadores">${ef.map((t) => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
+    <h4>Mochila do grupo <small>${E.ouro} moedas de prata</small></h4><div class="lista-acoes">${inv}</div>
+    <h4>Sobre ${esc(c.heroi === h.nome ? h.nome : c.nome)}</h4><p class="folha-sub">${esc(c.desc)}</p>`;
+  $('#ficha-tela').hidden = false;
+  icones();
+  $('#bt-fecha-ficha').onclick = () => { $('#ficha-tela').hidden = true; };
+  document.querySelectorAll('[data-ficha]').forEach((b) => b.onclick = () => abrirFichaCompleta(b.dataset.ficha));
 }
 
 // ================================================================ eventos de tela

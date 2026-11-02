@@ -30,8 +30,47 @@ const VIS = {
   afogado: { m: 'Skeleton_Minion', mao: {}, tint: 0x6aa59a, h: 0.86 },
   cavaleiro: { m: 'Skeleton_Warrior', mao: { r: 'Skeleton_Axe', l: 'Skeleton_Shield_Small_A' }, h: 1.08 },
   vorag: { m: 'Skeleton_Mage', mao: { r: 'Skeleton_Staff' }, h: 1.12, brilho: 0x50ff90 },
-  lobo: { m: 'Fox', tint: 0x55555e, h: 0.5, raposa: true }
+  lobo: { m: 'q/Wolf', tint: 0x8a8a96, h: 0.62, proprio: 'Wolf', investe: true },
+  // Capítulo II
+  hedda: { m: 'Rogue', ver: [], tint: 0xe0b8a0, h: 0.9 },
+  brokk: { m: 'Barbarian', ver: ['1H_Axe'], tint: 0xc08a60, h: 0.74 },
+  mineiro: { m: 'Barbarian', ver: [], tint: 0x9a8f86, h: 0.95 },
+  cativo: { m: 'Rogue_Hooded', ver: [], tint: 0x7a3a48, h: 0.9 },
+  cultista: { m: 'Rogue_Hooded', ver: ['Knife', 'Knife_Offhand'], tint: 0x8a3242, h: 0.92, contorno: 0xff6a8a },
+  cultista_arc: { m: 'Mage', ver: ['1H_Wand'], tint: 0x6a4a7a, h: 0.92, contorno: 0xc080ff },
+  corvina: { m: 'Mage', ver: ['2H_Staff'], tint: 0x55306a, h: 1.0, contorno: 0xc070ff },
+  aranha: { m: 'q/Spider', tint: 0x6a6070, h: 0.42, proprio: 'Spider', investe: true },
+  aranha_mae: { m: 'q/Spider', tint: 0x9a5a6a, h: 0.78, proprio: 'Spider', investe: true, contorno: 0xff6a8a },
+  rato: { m: 'q/Rat', tint: 0x9a8a80, h: 0.34, proprio: 'Rat', investe: true },
+  troll: { m: 'q/Big_arm', tint: 0x9ab09a, h: 1.3, proprio: 'Big_arm' },
+  golem: { m: 'q/Big_arm', tint: 0x8a8580, h: 1.25, proprio: 'Big_arm', contorno: 0x6ad8ff },
+  espectro: { m: 'Skeleton_Rogue', mao: { r: 'Skeleton_Blade' }, tint: 0x9ac4ff, h: 0.9, brilho: 0x80c8ff, fantasma: true },
+  rei_corvo: { m: 'Skeleton_Mage', mao: { r: 'Skeleton_Staff' }, tint: 0x6a6a8a, h: 1.35, brilho: 0x6ab8ff, contorno: 0x6ab8ff }
 };
+// Animais e criaturas Quaternius trazem as próprias animações.
+const CLIP_PROPRIO = {
+  Wolf: { idle: 'Idle', andar: 'Walk', correr: 'Gallop', ataque: 'Attack', dano: 'Idle_HitReact_Left', morte: 'Death' },
+  Spider: { idle: 'Spider_Idle', andar: 'Spider_Walk', correr: 'Spider_Walk', ataque: 'Spider_Attack', dano: 'Spider_Jump', morte: 'Spider_Death' },
+  Rat: { idle: 'Rat_Idle', andar: 'Rat_Walk', correr: 'Rat_Run', ataque: 'Rat_Attack', dano: 'Rat_Idle', morte: 'Rat_Death' },
+  Big_arm: { idle: 'Idle', andar: 'Walk', correr: 'Run', ataque: 'Punch', dano: 'HitReact', morte: 'Death', provocar: 'No', festa: 'Jump_Land' }
+};
+// Peças de cenário agrupadas num arquivo só (texturas baixadas uma vez).
+const PACOTES = { nat: 'q/natureza', vila: 'q/vila', mas: 'q/masmorra' };
+
+// Luz de contorno: brilho suave nas bordas do personagem, destaca do cenário.
+function contorno(mat, cor, forca) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.corContorno = { value: new THREE.Color(cor) };
+    sh.uniforms.forcaContorno = { value: forca };
+    sh.fragmentShader = ['uniform vec3 corContorno;', 'uniform float forcaContorno;', ''].join(String.fromCharCode(10)) +
+      sh.fragmentShader.replace('#include <emissivemap_fragment>', [
+        '#include <emissivemap_fragment>',
+        'float fr = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 2.6);',
+        'totalEmissiveRadiance += corContorno * fr * forcaContorno;'
+      ].join(String.fromCharCode(10)));
+  };
+  mat.customProgramCacheKey = () => 'contorno';
+}
 const OPCIONAIS = new Set(['1H_Axe_Offhand', 'Barbarian_Round_Shield', '1H_Axe', '2H_Axe', 'Mug', '1H_Sword_Offhand', 'Badge_Shield',
   'Rectangle_Shield', 'Round_Shield', 'Spike_Shield', '1H_Sword', '2H_Sword', 'Spellbook', 'Spellbook_open', '1H_Wand', '2H_Staff',
   'Knife_Offhand', '1H_Crossbow', '2H_Crossbow', 'Knife', 'Throwable']);
@@ -49,7 +88,14 @@ const TEMAS = {
   floresta: { piso: 'neve', lado: 'terra', fundo: 0x0b1220, nevoa: [0x0e1726, 8, 24], ceu: 0x9fb8ff, chao: 0x1c2430, amb: 0.6, sol: [0xbcd0ff, 1.3], part: 'neve' },
   pantano: { piso: 'lama', lado: 'terra', fundo: 0x0c120c, nevoa: [0x18241a, 6, 22], ceu: 0xb9d6a0, chao: 0x1a2416, amb: 0.55, sol: [0xd8e8a8, 1.0], part: 'vagalumes' },
   cripta: { piso: 'lajota', lado: 'pedra', fundo: 0x07090b, nevoa: [0x0a0e10, 7, 22], ceu: 0x8fa8b0, chao: 0x101418, amb: 0.4, sol: [0x9fd8c8, 0.55], part: 'poeira', parede: 'pedra' },
-  salao: { piso: 'antiga', lado: 'pedra', fundo: 0x090b14, nevoa: [0x10141f, 8, 26], ceu: 0xaab8ff, chao: 0x141824, amb: 0.5, sol: [0xc8d4ff, 1.1], part: 'neve' }
+  salao: { piso: 'antiga', lado: 'pedra', fundo: 0x090b14, nevoa: [0x10141f, 8, 26], ceu: 0xaab8ff, chao: 0x141824, amb: 0.5, sol: [0xc8d4ff, 1.1], part: 'neve' },
+  // Capítulo II
+  vila: { piso: 'neve', lado: 'terra', fundo: 0x0d1322, nevoa: [0x121a2a, 9, 26], ceu: 0xa8c0ff, chao: 0x20242c, amb: 0.6, sol: [0xc8d8ff, 1.15], part: 'neve', contra: 0xffa860, forcaContra: 0.7 },
+  mina: { piso: 'terra', lado: 'pedra', fundo: 0x0a0806, nevoa: [0x0e0b08, 6, 20], ceu: 0xffc890, chao: 0x1a120a, amb: 0.42, sol: [0xffb070, 0.6], part: 'poeira', contra: 0x6a8aff, forcaContra: 0.6 },
+  lago: { piso: 'rocha', lado: 'pedra', fundo: 0x040910, nevoa: [0x07111c, 6, 22], ceu: 0x80c8ff, chao: 0x0a1420, amb: 0.45, sol: [0x8ac8ff, 0.7], part: 'vagalumes', contra: 0x40b0ff, forcaContra: 1.1, corPart: 0x7ad8ff },
+  forja: { piso: 'antiga', lado: 'pedra', fundo: 0x0e0905, nevoa: [0x140c06, 8, 24], ceu: 0xffc080, chao: 0x20140a, amb: 0.45, sol: [0xffa860, 0.8], part: 'brasas', parede: 'pedra', contra: 0x8ab0ff, forcaContra: 0.7 },
+  ninho: { piso: 'rocha', lado: 'pedra', fundo: 0x0a060c, nevoa: [0x100a14, 7, 22], ceu: 0xd0b8ff, chao: 0x1c1224, amb: 0.6, sol: [0xc8b0ff, 0.85], part: 'poeira', contra: 0xff6aa0, forcaContra: 0.8 },
+  trono: { piso: 'antiga', lado: 'pedra', fundo: 0x060a10, nevoa: [0x0a1018, 8, 26], ceu: 0x90ffc0, chao: 0x0c1418, amb: 0.42, sol: [0xa0c8ff, 0.95], part: 'poeira', contra: 0x60ffa0, forcaContra: 1.0 }
 };
 
 // ------------------------------------------------------------ texturas
@@ -107,6 +153,22 @@ const PISOS = {
       ctx.fillRect(i * w / q + 3, j * h / q + 3, w / q - 6, h / q - 6);
     }
     ruido(ctx, w, h, r, ['#3a3e42', '#6a7074', '#2f4a3a'], 160, 8);
+    musgo(ctx, w, h, r, 0.7);
+  },
+  terra(ctx, w, h, r) {
+    ctx.fillStyle = '#4a3622'; ctx.fillRect(0, 0, w, h);
+    ruido(ctx, w, h, r, ['#3a2a1a', '#5a4430', '#6b5a48', '#2e2014'], 240, 14);
+    ruido(ctx, w, h, r, ['#8a7a68', '#5e5e62'], 30, 6);
+  },
+  rocha(ctx, w, h, r) {
+    ctx.fillStyle = '#2e3440'; ctx.fillRect(0, 0, w, h);
+    for (let k = 0; k < 5; k++) {
+      const v = 44 + Math.floor(r() * 26);
+      ctx.fillStyle = `rgb(${v},${v + 4},${v + 14})`;
+      ctx.beginPath(); ctx.ellipse(r() * w, r() * h, 26 + r() * 30, 18 + r() * 24, r() * 3, 0, 7); ctx.fill();
+    }
+    ruido(ctx, w, h, r, ['#232832', '#4a5466', '#3a4a5a'], 140, 10);
+    musgo(ctx, w, h, r, 0.5);
   },
   antiga(ctx, w, h, r) {
     ctx.fillStyle = '#3e4048'; ctx.fillRect(0, 0, w, h);
@@ -116,8 +178,19 @@ const PISOS = {
       ctx.beginPath(); ctx.ellipse(r() * w, r() * h, 20 + r() * 30, 16 + r() * 24, r() * 3, 0, 7); ctx.fill();
     }
     ruido(ctx, w, h, r, ['#2d4a2a', '#3b5a32', '#25262c'], 120, 10);
+    musgo(ctx, w, h, r, 0.8);
   }
 };
+// manchas de musgo nas bordas das lajotas (como nas masmorras pintadas à mão)
+function musgo(ctx, w, h, r, forca) {
+  const n = Math.floor(3 + r() * 5 * forca);
+  for (let i = 0; i < n; i++) {
+    const x = r() < 0.5 ? r() * w * 0.25 : w - r() * w * 0.25, y = r() * h;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, 10 + r() * 18);
+    g.addColorStop(0, 'rgba(88,130,52,' + (0.55 * forca) + ')'); g.addColorStop(1, 'rgba(60,96,40,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  }
+}
 const LADOS = {
   pedra(ctx, w, h, r) { ctx.fillStyle = '#3b3632'; ctx.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 16) for (let x = (y / 16) % 2 * 12; x < w; x += 24) { const v = 50 + Math.floor(r() * 30); ctx.fillStyle = `rgb(${v},${v - 4},${v - 8})`; ctx.fillRect(x + 1, y + 1, 22, 14); } },
   terra(ctx, w, h, r) { const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#4a3624'); g.addColorStop(1, '#22160c'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); ruido(ctx, w, h, r, ['#5e4630', '#2c1e12', '#6b6b6b'], 140, 8); }
@@ -180,7 +253,7 @@ export class Mundo {
     this.mundo.add(this.camadaFx);
     this.loader = new GLTFLoader();
     this.cache = new Map();
-    this.clipes = { kay: [], esq: [], fox: [] };
+    this.clipes = { kay: [], esq: [] };
     this.un = new Map(); // id -> visual
     this.info = {};
     this.relogio = new THREE.Clock();
@@ -204,17 +277,17 @@ export class Mundo {
   // ----------------------------------------------------------- carga
   carregar(nome) {
     if (!this.cache.has(nome)) {
-      this.cache.set(nome, new Promise((ok, erro) => this.loader.load(BASE + nome + '.glb', ok, undefined, erro)));
+      const url = (nome.includes('/') ? 'assets/' : BASE) + nome + '.glb';
+      this.cache.set(nome, new Promise((ok, erro) => this.loader.load(url, ok, undefined, erro)));
     }
     return this.cache.get(nome);
   }
   async preparar(progresso) {
-    const base = ['Knight', 'Skeleton_Minion', 'Fox'];
+    const base = ['Knight', 'Skeleton_Minion'];
     let n = 0;
     const tudo = await Promise.all(base.map((b) => this.carregar(b).then((g) => { n++; if (progresso) progresso(n / base.length); return g; })));
     this.clipes.kay = tudo[0].animations;
     this.clipes.esq = tudo[1].animations;
-    this.clipes.fox = tudo[2].animations;
     // aquece os modelos mais comuns em segundo plano
     ['Barbarian', 'Mage', 'Rogue', 'Rogue_Hooded', 'Skeleton_Blade'].forEach((m) => this.carregar(m).catch(() => {}));
   }
@@ -335,6 +408,11 @@ export class Mundo {
     Object.assign(sol.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 25 });
     sol.shadow.bias = -0.0015;
     this.camadaCena.add(sol, sol.target);
+    // contraluz frio: recorta os personagens do fundo
+    const contra = new THREE.DirectionalLight(t.contra || 0x8fb4ff, t.forcaContra || 0.9);
+    contra.position.set(7, 5, -5);
+    contra.target.position.set(4, 0, 3);
+    this.camadaCena.add(contra, contra.target);
 
     // base da maquete
     const r = rng(c.id.length * 977 + 13);
@@ -384,10 +462,13 @@ export class Mundo {
       if (l && l.m) {
         let nome = l.m;
         if (l.var) nome = l.var[Math.floor(r() * l.var.length)];
-        tarefas.push(this._prop(nome, x + 0.5 + (l.dx || 0), y + 0.5, l.s || 1, (l.r || 0) + (l.var ? Math.floor(r() * 4) * 90 : 0), true));
+        tarefas.push(this._prop(nome, x + 0.5 + (l.dx || 0), y + 0.5 + (l.dz || 0), l.s || 1, (l.r || 0) + (l.var ? Math.floor(r() * 4) * 90 : 0), true));
       }
+      if (l && l.trilho) this._trilho(x, y, c.mapa);
+      if (l && l.cristal) this._cristais(x + 0.5, y + 0.5, 1, r);
     }
     this._entorno(c, r, tarefas);
+    this._enfeites(c, r, tarefas);
     this._particulas(t.part);
     // anel de saída
     this.anelSaida = this._anelSaida();
@@ -419,14 +500,21 @@ export class Mundo {
       if (g && !horiz && !vert) { const g2 = await this._prop('wall', x + 0.5, y + 0.5, 1.02, 90, true); return g2; }
       return g;
     }
-    return this._prop('rock_single_A', x + 0.5, y + 0.5, 0.9, 0, true);
+    return this._prop('nat:Rock_Medium_' + (1 + ((x * 7 + y * 3) % 3)), x + 0.5, y + 0.5, 0.95, (x * 37 + y * 53) % 360, true);
   }
 
   // Coloca um modelo encaixado em s casas, com a base no piso.
   async _prop(nome, x, z, s, rotGraus, sombra, pai) {
     if (nome === '@fogueira') return this._fogueira(x, z);
-    const g = await this.carregar(nome);
-    const o = g.scene.clone(true);
+    let o;
+    if (nome.includes(':')) {
+      const [pac, item] = nome.split(':');
+      const g = await this.carregar(PACOTES[pac]);
+      const n = g.scene.getObjectByName(item);
+      if (!n) throw new Error('peça ' + nome);
+      o = n.clone(true); o.position.set(0, 0, 0);
+    } else o = (await this.carregar(nome)).scene.clone(true);
+    o.updateMatrixWorld(true);
     const caixa = new THREE.Box3().setFromObject(o);
     const tam = caixa.getSize(new THREE.Vector3());
     const k = s / Math.max(tam.x, tam.z, 0.0001);
@@ -442,7 +530,8 @@ export class Mundo {
   }
 
   _entorno(c, r, tarefas) {
-    const add = (nome, x, z, s, rot) => tarefas.push(this._prop(nome, x, z, s, rot, true));
+    const add = (nome, x, z, s, rot) => tarefas.push(nome === null ? x : this._prop(nome, x, z, s, rot, true));
+    if (['vila', 'mina', 'lago', 'forja', 'ninho', 'trono'].includes(c.tema)) return this._entornoCap2(c, r, add);
     const pinta = (x, z) => x < -0.2 || x > COLS + 0.2 || z < -0.2 || z > LINHAS + 0.2;
     if (c.tema === 'taverna') {
       for (let x = 0; x < COLS; x++) add('wall', x + 0.5, -0.12, 1.02, 0);
@@ -454,13 +543,14 @@ export class Mundo {
       this._luz(3.2, 0.6, 2.3, 0xffb060, 0.9);
       this.mesa.add(this._tampoMesa(0x3a2414));
     } else if (c.tema === 'floresta' || c.tema === 'pantano') {
-      const arv = c.tema === 'floresta' ? ['trees_A_large', 'trees_A_medium', 'tree_single_A', 'tree_single_A', 'trees_A_large'] : ['tree_dead_large', 'tree_dead_medium', 'tree_dead_large'];
+      const arv = c.tema === 'floresta' ? ['nat:Pine_1', 'nat:Pine_2', 'nat:Pine_3', 'nat:Pine_4', 'nat:Pine_5'] : ['nat:Dead_Tree_1', 'nat:Dead_Tree_2', 'nat:Dead_Tree_3', 'nat:Twisted_Tree_1'];
       for (let i = 0; i < 26; i++) {
         const a = (i / 26) * Math.PI * 2, d = 5.2 + r() * 1.4;
         const x = COLS / 2 + Math.cos(a) * d * 1.05, z = LINHAS / 2 + Math.sin(a) * d * 0.85;
-        if (pinta(x, z)) add(arv[Math.floor(r() * arv.length)], x, z, 0.9 + r() * 0.6, r() * 360);
+        if (pinta(x, z)) add(arv[Math.floor(r() * arv.length)], x, z, 1.1 + r() * 0.7, r() * 360);
       }
-      for (let i = 0; i < 10; i++) { const x = -1 + r() * (COLS + 2), z = r() < 0.5 ? -0.8 - r() : LINHAS + 0.7 + r(); add(['rock_single_C', 'rock_single_E'][i % 2], x, z, 0.5 + r() * 0.5, r() * 360); }
+      for (let i = 0; i < 10; i++) { const x = -1 + r() * (COLS + 2), z = r() < 0.5 ? -0.8 - r() : LINHAS + 0.7 + r(); add('nat:Rock_Medium_' + (1 + i % 3), x, z, 0.5 + r() * 0.5, r() * 360); }
+      for (let i = 0; i < 18; i++) { const x = -1.2 + r() * (COLS + 2.4), z = r() < 0.5 ? -0.4 - r() * 1.4 : LINHAS + 0.4 + r() * 1.4; tarefas.push(this._prop(['nat:Fern_1', 'nat:Bush_1', 'nat:Grass_Wispy_1', 'nat:Tall_Grass_1', 'nat:Mushroom_1'][i % 5], x, z, 0.35 + r() * 0.3, r() * 360, false)); }
       if (c.tema === 'pantano') { this._luz(3.5, 0.6, 2.3, 0x9dff6a, 0.8); add('lantern_standing', 2.6, 1.6, 0.25, 0); }
       if (c.id === 'acampamento') { add('tent', -1.2, 1.5, 1.4, 70); add('flag_red', COLS + 0.6, 2.5, 0.5, 0); }
       this.mesa.add(this._tampoMesa(0x2a2016));
@@ -480,6 +570,128 @@ export class Mundo {
       add('building_church_green', COLS / 2, -2.6, 3.2, 0);
       this._luz(3.5, 1.4, 0.5, 0x60ff90, 1.4);
       this.mesa.add(this._tampoMesa(0x161a26));
+    }
+  }
+  // Vegetação e detalhes pequenos nas casas livres (não bloqueiam nada).
+  _enfeites(c, r, tarefas) {
+    const ocupada = new Set((c.unidades || []).map((u) => u.x + ',' + u.y).concat((c.entrada || []).map((p) => p[0] + ',' + p[1])));
+    if (c.saida) ocupada.add(c.saida[0] + ',' + c.saida[1]);
+    const kits = {
+      floresta: ['nat:Grass_1', 'nat:Grass_Wispy_1', 'nat:Fern_1', 'nat:Clover_1', 'nat:Mushroom_1', 'nat:Pebble_Round_1', 'nat:Flower_Single_1'],
+      pantano: ['nat:Tall_Grass_1', 'nat:Grass_Wispy_1', 'nat:Mushroom_Laetiporus_1', 'nat:Fern_1', 'nat:Plant_Big_1'],
+      cripta: ['mas:Skull', 'mas:Skull_2', 'mas:Cobweb', 'nat:Pebble_Round_1'],
+      salao: ['mas:Skull_3', 'nat:Pebble_Round_1', 'nat:Grass_Wispy_1'],
+      mina: ['vila:Mineral', 'nat:Pebble_Round_1', 'vila:Gold_rocks', 'mas:Skull'],
+      vila: ['nat:Grass_Wispy_1', 'nat:Flower_Group_1', 'vila:Hay', 'nat:Pebble_Round_1']
+    };
+    const kit = kits[c.tema];
+    if (!kit) return;
+    const chance = c.tema === 'floresta' || c.tema === 'pantano' ? 0.45 : 0.18;
+    for (let y = 0; y < LINHAS; y++) for (let x = 0; x < COLS; x++) {
+      if (c.mapa[y][x] !== '.' || ocupada.has(x + ',' + y) || r() > chance) continue;
+      const nome = kit[Math.floor(r() * kit.length)];
+      const cantoX = r() < 0.5 ? 0.18 : 0.82, cantoZ = r() < 0.5 ? 0.18 : 0.82;
+      const s = /Cobweb/.test(nome) ? 0.4 : /Skull|Pebble|Mineral|Gold/.test(nome) ? 0.16 : 0.26 + r() * 0.12;
+      tarefas.push(this._prop(nome, x + cantoX, y + cantoZ, s, r() * 360, false));
+    }
+  }
+  // trilhos de mina: dois ferros e dormentes; seguem a linha dos vizinhos
+  _trilho(x, y, mapa) {
+    const g = new THREE.Group();
+    const ferro = new THREE.MeshStandardMaterial({ color: 0x8a8278, metalness: 0.5, roughness: 0.45 });
+    const madeira = new THREE.MeshStandardMaterial({ color: 0x5a4028, roughness: 1 });
+    const vert = (mapa[y - 1] && mapa[y - 1][x] === 't') || (mapa[y + 1] && mapa[y + 1][x] === 't');
+    for (let i = 0; i < 3; i++) { const d = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.03, 0.7), madeira); d.position.set(-0.33 + i * 0.33, 0.015, 0); d.receiveShadow = true; g.add(d); }
+    for (const z of [-0.2, 0.2]) { const t = new THREE.Mesh(new THREE.BoxGeometry(1, 0.04, 0.035), ferro); t.position.set(0, 0.05, z); t.castShadow = true; g.add(t); }
+    g.position.set(x + 0.5, PISO + 0.035, y + 0.5);
+    if (vert) g.rotation.y = Math.PI / 2;
+    this.camadaCena.add(g);
+  }
+  // cristais que brilham sozinhos (lago subterrâneo)
+  _cristais(x, z, tam, r) {
+    const g = new THREE.Group();
+    const cor = r() < 0.7 ? 0x5ac8ff : 0xa07aff;
+    const mat = new THREE.MeshStandardMaterial({ color: cor, emissive: cor, emissiveIntensity: 0.9, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.88, flatShading: true });
+    const n = 4 + Math.floor(r() * 4);
+    for (let i = 0; i < n; i++) {
+      const alt = (0.25 + r() * 0.6) * tam;
+      const m = new THREE.Mesh(new THREE.ConeGeometry(0.06 + r() * 0.08, alt, 5), mat);
+      m.position.set((r() - 0.5) * 0.5 * tam, alt / 2, (r() - 0.5) * 0.5 * tam);
+      m.rotation.set((r() - 0.5) * 0.7, r() * 3, (r() - 0.5) * 0.7);
+      m.castShadow = true;
+      g.add(m);
+    }
+    g.position.set(x, PISO, z);
+    this.camadaCena.add(g);
+    if (r() < 0.6) this._luz(x, PISO + 0.5, z, cor, 0.6);
+    return g;
+  }
+  _paredes(semFrente) {
+    const t = [];
+    for (let x = 0; x < COLS; x++) t.push(this._prop('wall', x + 0.5, -0.12, 1.02, 0, true));
+    for (let z = 0; z < LINHAS - (semFrente ? 1 : 0); z++) { t.push(this._prop('wall', -0.12, z + 0.5, 1.02, 90, true)); t.push(this._prop('wall', COLS + 0.12, z + 0.5, 1.02, 90, true)); }
+    return t;
+  }
+  _rochedo(r, add) {
+    // paredão de rocha em volta da caverna
+    for (let i = 0; i < 22; i++) {
+      const a = (i / 22) * Math.PI * 2, d = 5.0 + r() * 0.8;
+      const x = COLS / 2 + Math.cos(a) * d * 1.05, z = LINHAS / 2 + Math.sin(a) * d * 0.85;
+      if (z > LINHAS + 0.6 && Math.abs(x - COLS / 2) < 3) continue;
+      add('nat:Rock_Medium_' + (1 + (i % 3)), x, z, 1.2 + r() * 1.3, r() * 360);
+    }
+  }
+  _entornoCap2(c, r, add) {
+    if (c.tema === 'vila') {
+      add('vila:Bell_Tower', COLS / 2 + 0.6, -2.2, 2.4, 0);
+      add('vila:Fantasy_Inn', -2.2, 3.2, 2.4, 90);
+      add('vila:Market_Stand_2', COLS + 1.2, 3.6, 1.0, -90);
+      for (let i = 0; i < 18; i++) {
+        const a = (i / 18) * Math.PI * 2, d = 5.8 + r() * 1.2;
+        const x = COLS / 2 + Math.cos(a) * d * 1.05, z = LINHAS / 2 + Math.sin(a) * d * 0.85;
+        if (z < -1 && Math.abs(x - COLS / 2) < 2) continue;
+        add('nat:Pine_' + (1 + (i % 5)), x, z, 1.2 + r() * 0.6, r() * 360);
+      }
+      this._luz(6.8, 0.8, 0.9, 0xff9a40, 1.6); this._luz(1.2, 1.0, 1.2, 0xffb060, 1.1);
+      add('lantern_standing', 3.6, LINHAS + 0.4, 0.3, 0);
+      this.mesa.add(this._tampoMesa(0x22252c));
+    } else if (c.tema === 'mina') {
+      this._rochedo(r, add);
+      add('vila:Mine', 1.4, -1.6, 2.2, 0);
+      add('vila:Gold_Rocks', COLS + 0.9, 1.2, 0.8, 30); add('vila:Mineral', -0.9, 2.0, 0.5, 0);
+      add('torch_mounted', 2.5, 0.05, 0.25, 0); add('torch_mounted', 5.5, 0.05, 0.25, 0);
+      this._luz(2.5, 0.9, 0.4, 0xff9a40, 1.4); this._luz(5.5, 0.9, 0.4, 0xff9a40, 1.4); this._luz(4.0, 0.7, 4.2, 0xffa860, 0.8);
+      this.mesa.add(this._tampoMesa(0x1a140e));
+    } else if (c.tema === 'lago') {
+      this._rochedo(r, add);
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2, d = 4.6 + r() * 0.6;
+        this._cristais(COLS / 2 + Math.cos(a) * d * 1.05, LINHAS / 2 + Math.sin(a) * d * 0.85, 1.6 + r() * 1.2, r);
+      }
+      const lago = new THREE.Mesh(new THREE.CircleGeometry(7.5, 40), new THREE.MeshStandardMaterial({ color: 0x0a2a3a, roughness: 0.1, metalness: 0.4, emissive: 0x041824 }));
+      lago.rotation.x = -Math.PI / 2; lago.position.set(COLS / 2, PISO - 0.08, LINHAS / 2); lago.scale.set(1, 0.8, 1);
+      this.camadaCena.add(lago); this.agua.push(lago);
+      this.mesa.add(this._tampoMesa(0x0a1218));
+    } else if (c.tema === 'forja') {
+      this._paredes(true).forEach((p) => add(null, p));
+      add('pillar_decorated', -0.5, 0.5, 0.7, 0); add('pillar_decorated', COLS + 0.5, 0.5, 0.7, 0);
+      add('mas:Torch', 1.5, 0.1, 0.3, 0); add('mas:Torch_2', 6.5, 0.1, 0.3, 0);
+      add('barrel_large', -0.7, 4.5, 0.7, 0); add('crates_stacked', COLS + 0.7, 4.2, 0.8, 0);
+      this._luz(1.5, 0.9, 0.3, 0xff9a40, 1.2); this._luz(6.5, 0.9, 0.3, 0xff9a40, 1.2);
+      this.mesa.add(this._tampoMesa(0x1e1610));
+    } else if (c.tema === 'ninho') {
+      this._rochedo(r, add);
+      add('candle_triple', 3.2, 0.3, 0.3, 0); add('candle_triple', 5.0, 0.3, 0.3, 0); add('mas:Cobweb', -0.4, 0.4, 0.9, 0); add('mas:Cobweb', COLS + 0.4, 0.4, 0.9, 180);
+      add('mas:Skull_3', 0.4, 4.6, 0.25, 30); add('banner_patternA_red', 2.5, -0.1, 0.6, 0);
+      this._luz(4.3, 0.8, 0.6, 0xc070ff, 1.4); this._luz(1.5, 0.8, 3.5, 0xff8a40, 0.8);
+      this.mesa.add(this._tampoMesa(0x150e18));
+    } else if (c.tema === 'trono') {
+      for (let i = 0; i < COLS; i++) add(i % 3 ? 'wall_broken' : 'wall', i + 0.5, -0.15, 1.02, 0);
+      add('pillar_decorated', -0.5, 0.5, 0.75, 0); add('pillar_decorated', COLS + 0.5, 0.5, 0.75, 0);
+      add('pillar_decorated', -0.5, 4.5, 0.75, 0); add('pillar_decorated', COLS + 0.5, 4.5, 0.75, 0);
+      add('mas:Skull_2', 0.5, 5.6, 0.2, 0); add('mas:Skull', 7.4, 5.4, 0.2, 90);
+      this._luz(4.0, 1.4, 0.4, 0x60ffa0, 1.2);
+      this.mesa.add(this._tampoMesa(0x0e141c));
     }
   }
   _tampoMesa(cor) {
@@ -540,7 +752,7 @@ export class Mundo {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const cor = { neve: 0xeef4ff, brasas: 0xff9a40, vagalumes: 0xc8ff6a, poeira: 0xb8c8c0 }[tipo];
+    const cor = (this.tema && this.tema.corPart) || { neve: 0xeef4ff, brasas: 0xff9a40, vagalumes: 0xc8ff6a, poeira: 0xb8c8c0 }[tipo];
     const tam = { neve: 0.06, brasas: 0.05, vagalumes: 0.09, poeira: 0.035 }[tipo];
     const mat = new THREE.PointsMaterial({ color: cor, size: tam, map: pontoTex(), transparent: true, depthWrite: false, blending: tipo === 'neve' || tipo === 'poeira' ? THREE.NormalBlending : THREE.AdditiveBlending, opacity: tipo === 'poeira' ? 0.5 : 0.9 });
     const obj = new THREE.Points(geo, mat);
@@ -592,7 +804,7 @@ export class Mundo {
     if (def) {
       const g = await this.carregar(def.m);
       const o = SkeletonUtils.clone(g.scene);
-      if (!def.raposa) {
+      if (!def.proprio) {
         o.traverse((m) => {
           if (m.isMesh && OPCIONAIS.has(m.name)) m.visible = (def.ver || []).includes(m.name);
         });
@@ -600,11 +812,12 @@ export class Mundo {
       o.traverse((m) => {
         if (m.isMesh) {
           m.castShadow = true; m.receiveShadow = false; m.frustumCulled = false;
-          if (def.tint || def.brilho) {
-            m.material = m.material.clone();
-            if (def.tint) m.material.color.multiply(new THREE.Color(def.tint));
-            if (def.brilho && /Eyes/.test(m.name)) { m.material.emissive = new THREE.Color(def.brilho); m.material.emissiveIntensity = 2.5; }
-          }
+          m.material = m.material.clone();
+          if (def.tint) m.material.color.multiply(new THREE.Color(def.tint));
+          if (def.brilho && /Eyes/.test(m.name)) { m.material.emissive = new THREE.Color(def.brilho); m.material.emissiveIntensity = 2.5; }
+          if (def.fantasma) { m.material.transparent = true; m.material.opacity = 0.62; m.material.emissive = new THREE.Color(def.brilho || 0x80c8ff); m.material.emissiveIntensity = 0.35; m.castShadow = false; }
+          const corC = def.contorno || (info.lado === 'heroi' ? 0xffd8a0 : info.lado === 'inimigo' ? 0xc89a8a : 0xa8d8ff);
+          contorno(m.material, corC, def.contorno ? 0.8 : info.lado === 'inimigo' ? 0.35 : 0.5);
         }
       });
       if (def.mao) {
@@ -614,6 +827,7 @@ export class Mundo {
           if (osso) { const a = await this.carregar(def.mao[lado]); const arma = a.scene.clone(true); arma.traverse((m) => { if (m.isMesh) m.castShadow = true; }); osso.add(arma); }
         }
       }
+      o.updateMatrixWorld(true);
       const caixa = new THREE.Box3().setFromObject(o);
       const alt = caixa.max.y - caixa.min.y || 1;
       const k = def.h / alt;
@@ -623,9 +837,9 @@ export class Mundo {
       v.modelo = o;
       v.altura = def.h;
       v.mixer = new THREE.AnimationMixer(o);
-      v.clipes = def.raposa ? this.clipes.fox : /^Skeleton/.test(def.m) ? this.clipes.esq : this.clipes.kay;
-      v.raposa = !!def.raposa;
-      if (def.raposa) o.rotation.y = 0;
+      v.clipes = def.proprio ? g.animations : /^Skeleton/.test(def.m) ? this.clipes.esq : this.clipes.kay;
+      v.proprio = def.proprio || null;
+      v.investe = !!def.investe;
     } else {
       const o = this._objetoProc(info);
       raiz.add(o);
@@ -722,6 +936,60 @@ export class Mundo {
       const luz = new THREE.PointLight(0x40ff80, 2.5, 3.2, 1.5); luz.position.y = 0.5; g.add(luz);
       g.userData.pivo = pivo; g.userData.badalo = badalo; g.userData.luzSino = luz; g.userData.altura = 1.2;
       g.position.x = 0.5;
+    } else if (v === 'vagonete') {
+      const caixa = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.32, 0.46), madeira); caixa.position.y = 0.26; caixa.castShadow = true; g.add(caixa);
+      for (const yy of [0.16, 0.36]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.04, 0.48), ferro); b.position.y = yy; g.add(b); }
+      for (const [xx, zz] of [[-0.2, -0.24], [0.2, -0.24], [-0.2, 0.24], [0.2, 0.24]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.04, 12), ferro); w.rotation.x = Math.PI / 2; w.position.set(xx, 0.09, zz); g.add(w); }
+      const minerio = new THREE.MeshStandardMaterial({ color: 0x6a6460, roughness: 0.9, flatShading: true });
+      const ouro = new THREE.MeshStandardMaterial({ color: 0xd8a83a, metalness: 0.8, roughness: 0.3, flatShading: true });
+      for (let i = 0; i < 7; i++) { const p = new THREE.Mesh(new THREE.DodecahedronGeometry(0.07 + Math.random() * 0.04), i % 3 ? minerio : ouro); p.position.set((Math.random() - 0.5) * 0.45, 0.43 + Math.random() * 0.05, (Math.random() - 0.5) * 0.3); g.add(p); }
+      g.userData.altura = 0.55;
+    } else if (v === 'forja') {
+      const base = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.55, 0.75), pedra); base.position.set(0.5, 0.275, 0); base.castShadow = true; base.receiveShadow = true; g.add(base);
+      const capuz = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.55, 0.7, 4, 1, true), pedra); capuz.position.set(0.5, 1.0, -0.1); capuz.rotation.y = Math.PI / 4; g.add(capuz);
+      const brasa = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.05, 0.5), new THREE.MeshStandardMaterial({ color: 0x2a1a10, emissive: 0xff5a10, emissiveIntensity: 0 }));
+      brasa.position.set(0.5, 0.56, 0); g.add(brasa);
+      const luz = new THREE.PointLight(0xff7a2a, 0, 5, 1.4); luz.position.set(0.5, 0.9, 0.3); g.add(luz);
+      const runa = textoSprite('ᚱ', '#5a4a3a', 60); runa.position.set(0.5, 0.3, 0.4); runa.material.depthTest = true; g.add(runa);
+      g.userData.forja = { brasa, luz }; g.userData.altura = 1.1;
+    } else if (v === 'bigorna') {
+      const pe = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 0.3, 8), madeira); pe.position.y = 0.15; g.add(pe);
+      const corpo = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.14, 0.2), ferro); corpo.position.y = 0.37; corpo.castShadow = true; g.add(corpo);
+      const bico = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.2, 4), ferro); bico.rotation.z = -Math.PI / 2; bico.position.set(0.3, 0.39, 0); g.add(bico);
+      const barra = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.04, 0.06), new THREE.MeshStandardMaterial({ color: 0x8ad0ff, emissive: 0x3aa8ff, emissiveIntensity: 1.4, metalness: 0.6, roughness: 0.2 }));
+      barra.position.y = 0.47; g.add(barra);
+      g.userData.barra = barra; g.userData.altura = 0.6; g.userData.brilha = true;
+    } else if (v === 'jaula') {
+      const piso = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.05, 16), ferro); piso.position.y = 0.025; g.add(piso);
+      const topo = piso.clone(); topo.position.y = 0.95; g.add(topo);
+      for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; const b = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.92, 5), ferro); b.position.set(Math.cos(a) * 0.36, 0.49, Math.sin(a) * 0.36); b.castShadow = true; g.add(b); }
+      const preso = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.3, 4, 8), new THREE.MeshStandardMaterial({ color: 0x7a6a5a, roughness: 1 })); preso.position.y = 0.3; preso.rotation.z = 0.5; g.add(preso);
+      g.userData.altura = 1.0;
+    } else if (v === 'altar') {
+      const mesa = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.45, 0.55), pedra); mesa.position.y = 0.225; mesa.castShadow = true; g.add(mesa);
+      const pano = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.02, 0.3), new THREE.MeshStandardMaterial({ color: 0x3a1020 })); pano.position.y = 0.46; g.add(pano);
+      const cera = new THREE.MeshStandardMaterial({ color: 0xe8dcc0, emissive: 0x3a2a10 });
+      for (const xx of [-0.35, -0.2, 0.25, 0.38]) { const v1 = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.12 + Math.random() * 0.1, 8), cera); v1.position.set(xx, 0.52, (Math.random() - 0.5) * 0.3); g.add(v1); }
+      const luz = new THREE.PointLight(0xffa050, 1.4, 2.5, 1.6); luz.position.set(0, 0.8, 0.2); g.add(luz);
+      g.userData.altura = 0.6;
+    } else if (v === 'braseiro') {
+      const tripe = new THREE.Group();
+      for (let i = 0; i < 3; i++) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.55, 5), ferro); const a = i / 3 * Math.PI * 2; p.position.set(Math.cos(a) * 0.13, 0.27, Math.sin(a) * 0.13); p.rotation.set(Math.sin(a) * 0.25, 0, -Math.cos(a) * 0.25); tripe.add(p); }
+      const bacia = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), ferro); bacia.position.y = 0.62; bacia.rotation.x = Math.PI; bacia.material = ferro; tripe.add(bacia);
+      g.add(tripe);
+      const chamas = [];
+      const mat = new THREE.SpriteMaterial({ map: pontoTex(), color: 0x50ff90, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+      for (let i = 0; i < 12; i++) { const s = new THREE.Sprite(mat.clone()); s.position.y = 0.62; g.add(s); chamas.push({ s, f: Math.random() }); }
+      const luz = new THREE.PointLight(0x50ff90, 2.2, 3, 1.5); luz.position.y = 0.95; g.add(luz);
+      g.userData.chamas = chamas; g.userData.chamaBase = 0.62; g.userData.corVerde = true; g.userData.luzBraseiro = luz; g.userData.tripe = tripe; g.userData.altura = 0.9;
+      this.fogueiras = (this.fogueiras || []).concat([g]);
+    } else if (v === 'trono') {
+      const osso = new THREE.MeshStandardMaterial({ color: 0xd8ccb0, roughness: 0.8 });
+      const assento = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.4, 0.6), pedra); assento.position.set(0.5, 0.2, 0); assento.castShadow = true; g.add(assento);
+      const encosto = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.3, 0.16), pedra); encosto.position.set(0.5, 0.85, -0.24); encosto.castShadow = true; g.add(encosto);
+      for (let i = 0; i < 7; i++) { const e = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.35 + (i % 2) * 0.2, 5), osso); e.position.set(0.05 + i * 0.15, 1.6 + (i % 2) * 0.1, -0.24); g.add(e); }
+      for (const xx of [0.02, 0.98]) { const cr = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), osso); cr.position.set(xx, 0.5, 0.22); g.add(cr); }
+      g.userData.altura = 1.6;
     } else {
       const c = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), madeira); c.position.y = 0.2; g.add(c); g.userData.altura = 0.45;
     }
@@ -729,8 +997,10 @@ export class Mundo {
   }
 
   _clipe(v, nome) {
-    if (v.raposa) {
-      const f = { idle: 'Survey', andar: 'Walk', correr: 'Run', mordida: 'Run', dano: 'Survey', morte: 'Survey', morto: 'Survey' }[nome] || 'Survey';
+    if (v.proprio) {
+      const t = CLIP_PROPRIO[v.proprio];
+      const ataque = /golpe|mordida|garra|facas|besta|magia|arremesso/.test(nome);
+      const f = t[nome === 'morto' ? 'morte' : ataque ? 'ataque' : nome] || (nome === 'bloquear' ? t.dano : t.idle);
       return v.clipes.find((c) => c.name === f);
     }
     for (const n of (CLIP[nome] || [nome])) {
@@ -819,6 +1089,10 @@ export class Mundo {
       if (u.virado && v.modelo.userData.braco) v.modelo.userData.braco.rotation.z = -0.6;
       if (v.modelo.userData.brilha) v.modelo.userData.usado = !!u.usado;
       if (u.obj === 'alcapao' && v.modelo.userData.tampa) v.modelo.userData.tampa.rotation.x = e.flags.aceitou_trabalho ? -1.9 : 0;
+      const ud = v.modelo.userData;
+      if (ud.forja) { const acesa = !!e.flags.forja_acesa; ud.forja.brasa.material.emissiveIntensity = acesa ? 2.2 : 0; ud.forja.luz.intensity = acesa ? 5 : 0; if (acesa && !ud.fogo) { ud.fogo = true; this._fogueira(u.x + 1, u.y + 0.5).then((f) => { f.position.y = PISO + 0.5; f.scale.setScalar(1.4); }); } }
+      if (ud.barra) { ud.barra.visible = !u.usado; if (u.usado) ud.usado = true; }
+      if (ud.luzBraseiro && u.usado && !ud.apagado) { ud.apagado = true; ud.luzBraseiro.intensity = 0; ud.chamas.forEach((c) => { c.s.visible = false; }); ud.tripe.rotation.z = 0.5; ud.tripe.position.y = -0.08; }
     }
     for (const [id, v] of this.un) if (!vivos.has(id) && !v.ocupado && !v.fica) { this.camadaUn.remove(v.raiz); this.un.delete(id); }
     // saída e armadilhas
@@ -891,7 +1165,7 @@ export class Mundo {
     if (!a) return;
     if (b) { this._olhar(a, b.raiz.position); if (b.info.lado !== 'objeto') this._olhar(b, a.raiz.position); }
     const d = this._tocar(a, ev.anim, false);
-    if (a.raposa && b) {
+    if (a.investe && b) {
       const o = a.raiz.position.clone(), alvo = b.raiz.position;
       this._tween(380, (t) => { const k = Math.sin(t * Math.PI) * 0.35; a.raiz.position.set(o.x + (alvo.x - o.x) * k, o.y, o.z + (alvo.z - o.z) * k); });
     }
@@ -942,7 +1216,7 @@ export class Mundo {
       b.fica = true; b.ocupado--;
       return;
     }
-    if (b.mixer && !b.raposa) await this._umaVez(b, 'morte', null);
+    if (b.mixer) await this._umaVez(b, 'morte', null);
     else await this._tween(500, (t) => { b.raiz.rotation.z = facil(t) * Math.PI / 2; });
     this._faiscas(b.raiz.position, 0x9a9a9a, 12);
     await this._tween(600, (t) => { b.raiz.position.y = PISO - facil(t) * 0.6; });
@@ -1009,6 +1283,30 @@ export class Mundo {
     if (fx === 'marca') { if (b) { this._anelMagico(b.raiz.position, 0xff4a3a); this._flutuar(textoSprite('Marcado', '#ff8a5a', 40), b.raiz.position); } return esperar(400); }
     if (fx === 'esquivar') { this._umaVez(a, 'bloquear'); this._anelMagico(a.raiz.position, 0x8ac8ff); return esperar(400); }
     if (fx === 'ardil') { this._faiscas(a.raiz.position, 0xd0d0ff, 16, true); return esperar(250); }
+    if (fx === 'bola') {
+      this._umaVez(a, 'magia');
+      await esperar(380);
+      if (b) { await this._projetil('fogo', a, b); this._onda(b.raiz.position, 0xff7a1a, 1.8); this._faiscas(b.raiz.position, 0xffa040, 40, true); this.tremer = 0.4; }
+      return esperar(250);
+    }
+    if (fx === 'chuva') {
+      this._umaVez(a, 'besta');
+      await esperar(300);
+      if (b) await Promise.all([0, 1, 2, 3, 4].map((i) => esperar(i * 90).then(() => {
+        const alvo = { raiz: { position: b.raiz.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.6, 0, (Math.random() - 0.5) * 1.6)) }, altura: 0.2, modelo: { userData: {} } };
+        return this._projetil('virote', a, alvo);
+      })));
+      return;
+    }
+    if (fx === 'giro') {
+      this._tocar(a, 'golpe2', false);
+      const r0 = a.raiz.rotation.y;
+      await this._tween(520, (t) => { a.raiz.rotation.y = r0 + facil(t) * Math.PI * 2; });
+      this._onda(a.raiz.position, 0xffd0a0, 1.4);
+      return;
+    }
+    if (fx === 'veneno') { this._umaVez(a, 'usar'); this._faiscas(a.raiz.position, 0x8aff5a, 22, true); return esperar(400); }
+    if (fx === 'surto') { this._umaVez(a, 'provocar'); this._anelMagico(a.raiz.position, 0xffd36a); this._faiscas(a.raiz.position, 0xffe08a, 24, true); return esperar(450); }
     if (fx === 'procurar') { this._umaVez(a, 'interagir'); this._onda(a.raiz.position, 0xffe08a, 2.5); return esperar(500); }
     if (fx === 'pocao' || fx === 'balsamo' || fx === 'folego' || fx === 'levantar') { this._umaVez(a, fx === 'levantar' ? 'interagir' : 'usar'); return esperar(450); }
     return esperar(200);
@@ -1160,9 +1458,10 @@ export class Mundo {
     if (this.fogueiras) for (const f of this.fogueiras) for (const c of f.userData.chamas) {
       c.f += dt * (0.9 + Math.random() * 0.3);
       if (c.f > 1) c.f = 0;
-      c.s.position.set(Math.sin(c.f * 9 + c.s.id) * 0.06, 0.08 + c.f * 0.5, Math.cos(c.f * 7 + c.s.id) * 0.06);
+      c.s.position.set(Math.sin(c.f * 9 + c.s.id) * 0.06, (f.userData.chamaBase || 0.08) + c.f * 0.5, Math.cos(c.f * 7 + c.s.id) * 0.06);
       c.s.scale.setScalar(0.28 * (1 - c.f) + 0.04);
-      c.s.material.color.setHSL(0.05 + c.f * 0.06, 1, 0.55 - c.f * 0.2);
+      if (f.userData.corVerde) c.s.material.color.setHSL(0.36 + c.f * 0.05, 1, 0.55 - c.f * 0.2);
+      else c.s.material.color.setHSL(0.05 + c.f * 0.06, 1, 0.55 - c.f * 0.2);
       c.s.material.opacity = 1 - c.f;
     }
     if (this.particulas) this._moverParticulas(dt, agora);

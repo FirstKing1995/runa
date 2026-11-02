@@ -1,93 +1,78 @@
-// RUNA — conexão da mesa. Com API_URL: todos os celulares falam com o Google Apps Script
-// (o servidor aplica as regras e guarda a mesa na planilha). Sem API_URL: modo local,
-// a mesa fica no navegador e as abas do mesmo aparelho se enxergam.
-const R = window.RUNA;
+// RUNA — conexão com o servidor (Google Apps Script; no computador, tools/servidor.mjs em /api).
+// Cada jogador tem conta: a sessão (token) fica neste aparelho. O servidor aplica as regras,
+// guarda as campanhas na planilha e só mostra cada mesa para quem entrou nela.
 const API = (window.RUNA_CONFIG && window.RUNA_CONFIG.API_URL || '').trim();
-export const remoto = !!API;
 
-const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-export function novoCodigo() {
-  let s = '';
-  const a = crypto.getRandomValues(new Uint32Array(5));
-  for (const n of a) s += LETRAS[n % LETRAS.length];
-  return s;
-}
 export function codigoValido(c) { return /^[A-Z2-9]{5}$/.test(c || ''); }
 
-function guardar(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* modo privado */ } }
+function guardar(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* modo privado */ } }
 function ler(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 
-export function meuId() {
-  let id = ler('runa_jogador');
-  if (!id) {
-    id = 'j' + Array.from(crypto.getRandomValues(new Uint8Array(8))).map((b) => b.toString(16).padStart(2, '0')).join('');
-    guardar('runa_jogador', id);
-  }
-  return id;
+// ------------------------------------------------------------------ sessão
+export function sessao() {
+  const token = ler('runa_token');
+  let conta = null;
+  try { conta = JSON.parse(ler('runa_conta') || 'null'); } catch (e) { conta = null; }
+  return token && conta ? { token, conta } : null;
 }
-// Chave secreta do aparelho: prova para o servidor que este jogador é você.
-function minhaChave() {
-  let c = ler('runa_chave');
-  if (!c) {
-    c = Array.from(crypto.getRandomValues(new Uint8Array(24))).map((b) => b.toString(16).padStart(2, '0')).join('');
-    guardar('runa_chave', c);
-  }
-  return c;
+function guardarSessao(r) {
+  if (r && r.ok && r.token) { guardar('runa_token', r.token); guardar('runa_conta', JSON.stringify(r.conta)); }
+  return r;
 }
-export function meuNome() { return ler('runa_nome') || ''; }
-export function salvarNome(n) { guardar('runa_nome', n); }
+export function sair() { guardar('runa_token', null); guardar('runa_conta', null); }
+// Sessão vencida ou senha trocada: limpa e manda entrar de novo.
+function sessaoCaiu(r) {
+  return r && !r.ok && /Entre de novo|Entre na sua conta|sessão|Conta não encontrada/i.test(r.erro || '');
+}
 
 async function post(corpo) {
-  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(corpo), redirect: 'follow' });
+  let r;
+  try {
+    r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(corpo), redirect: 'follow' });
+  } catch (e) { throw new Error('Sem conexão com o servidor. Confira a internet.'); }
   if (!r.ok) throw new Error('Servidor respondeu ' + r.status);
   return r.json();
 }
-async function get(params) {
-  const q = new URLSearchParams(params).toString();
-  const r = await fetch(API + (API.includes('?') ? '&' : '?') + q, { redirect: 'follow' });
-  if (!r.ok) throw new Error('Servidor respondeu ' + r.status);
-  return r.json();
-}
-
-const chaveLocal = (s) => 'runa_mesa_' + s;
-function lerLocal(s) { const t = ler(chaveLocal(s)); return t ? JSON.parse(t) : null; }
-function gravarLocal(e) {
-  guardar(chaveLocal(e.sala), JSON.stringify(e));
-  const lista = JSON.parse(ler('runa_mesas') || '[]').filter((x) => x !== e.sala);
-  lista.unshift(e.sala);
-  guardar('runa_mesas', JSON.stringify(lista.slice(0, 20)));
-}
-export function mesasLocais() {
-  return JSON.parse(ler('runa_mesas') || '[]').map(lerLocal).filter(Boolean);
-}
-export function apagarLocal(s) {
-  try { localStorage.removeItem(chaveLocal(s)); } catch (e) { /* nada */ }
-  guardar('runa_mesas', JSON.stringify(JSON.parse(ler('runa_mesas') || '[]').filter((x) => x !== s)));
-}
-
-export async function criarMesa(nome) {
-  const jogador = meuId();
-  if (remoto) {
-    const r = await post({ a: 'criar', jogador, nome, chave: minhaChave() });
-    if (!r.ok) throw new Error(r.erro || 'Não foi possível criar a mesa.');
-    return r.sala;
+// Chamada autenticada. Se a sessão caiu, volta para a tela de conta.
+export async function chamar(a, dados = {}) {
+  const s = sessao();
+  const r = await post(Object.assign({ a, token: s ? s.token : '' }, dados));
+  if (sessaoCaiu(r)) {
+    sair();
+    if (!/conta\.html/.test(location.pathname)) location.href = 'conta.html?volta=' + encodeURIComponent(location.pathname.split('/').pop() + location.search);
   }
-  const sala = novoCodigo();
-  const e = R.novoEstado(sala, jogador, nome, crypto.getRandomValues(new Uint32Array(1))[0] | 0);
-  gravarLocal(e);
-  return sala;
+  return r;
 }
 
+export const cadastrar = (d) => post(Object.assign({ a: 'cadastro' }, d)).then(guardarSessao);
+export const entrar = (email, senha) => post({ a: 'login', email, senha }).then(guardarSessao);
+export const esqueci = (email) => post({ a: 'esqueci', email });
+export const redefinir = (email, codigo, senha) => post({ a: 'redefinir', email, codigo, senha }).then(guardarSessao);
+export const eu = () => chamar('eu');
+export const atualizarPerfil = (d) => chamar('perfil', d).then(guardarSessao);
+export const previa = (sala) => chamar('previa', { sala });
+export const convidar = (sala, email) => chamar('convidar', { sala, email });
+export const esquecerMesa = (sala) => chamar('esquecerMesa', { sala });
+export const interesse = (email) => post({ a: 'interesse', email });
+export async function criarMesa(opcoes) {
+  const r = await chamar('criar', opcoes);
+  if (!r.ok) throw new Error(r.erro || 'Não foi possível criar a campanha.');
+  return r.sala;
+}
+export function linkConvite(sala) {
+  return new URL('jogo.html?sala=' + sala, location.href).href;
+}
+
+// ------------------------------------------------------------------ mesa
 export class Conexao {
   constructor(sala) {
     this.sala = sala;
-    this.jogador = meuId();
+    this.jogador = (sessao() || { conta: {} }).conta.id;
     this.estado = null;
     this.ouvintes = [];
     this.erroRede = null;
     this.intervalo = 1600;
     this._timer = null;
-    this._canal = null;
   }
   aoMudar(fn) { this.ouvintes.push(fn); }
   _avisar(e) {
@@ -96,28 +81,23 @@ export class Conexao {
     this.estado = e;
     for (const f of this.ouvintes) f(e);
   }
-
+  // Abre a mesa. Se a pessoa ainda não entrou, devolve { naoMembro } sem ligar o ciclo.
   async abrir() {
-    if (remoto) {
-      const r = await get({ a: 'estado', sala: this.sala });
-      if (!r.ok) throw new Error(r.erro || 'Mesa não encontrada.');
-      this._avisar(r.estado);
-    } else {
-      const e = lerLocal(this.sala);
-      if (!e) throw new Error('Mesa ' + this.sala + ' não existe neste aparelho. Sem servidor configurado, a mesa só existe no navegador de quem criou.');
-      this._avisar(e);
-      window.addEventListener('storage', (ev) => { if (ev.key === chaveLocal(this.sala) && ev.newValue) this._avisar(JSON.parse(ev.newValue)); });
+    const r = await chamar('estado', { sala: this.sala });
+    if (!r.ok) {
+      if (r.naoMembro) return { naoMembro: true };
+      throw new Error(r.erro || 'Campanha não encontrada.');
     }
+    if (r.eu) this.jogador = r.eu;
+    this._avisar(r.estado);
     this._ciclo();
-    return this.estado;
+    return { estado: this.estado };
   }
-
   _ciclo() {
-    if (!remoto) return;
     clearTimeout(this._timer);
     this._timer = setTimeout(async () => {
       try {
-        const r = await get({ a: 'estado', sala: this.sala, v: this.estado ? this.estado.versao : 0 });
+        const r = await chamar('estado', { sala: this.sala, v: this.estado ? this.estado.versao : 0 });
         this.erroRede = null;
         if (r.ok && r.estado) this._avisar(r.estado);
         this.intervalo = document.hidden ? 5000 : 1600;
@@ -128,17 +108,13 @@ export class Conexao {
       this._ciclo();
     }, this.intervalo);
   }
-
   async enviar(cmd) {
-    cmd = Object.assign({ jogador: this.jogador }, cmd);
-    if (remoto) {
-      const r = await post({ a: 'cmd', sala: this.sala, cmd, chave: minhaChave() });
+    try {
+      const r = await chamar('cmd', { sala: this.sala, cmd });
       if (r.estado) this._avisar(r.estado);
       return { ok: r.ok, erro: r.erro };
+    } catch (e) {
+      return { ok: false, erro: e.message };
     }
-    const e = lerLocal(this.sala) || this.estado;
-    const r = R.aplicar(e, cmd);
-    if (r.ok) { gravarLocal(e); this._avisar(e); }
-    return r;
   }
 }

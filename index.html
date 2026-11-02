@@ -83,7 +83,7 @@
 <body>
   <header class="faixa-topo">
     <a class="marca" href="#">RUNA</a>
-    <nav><a class="btn fantasma pequeno" href="imprimir.html"><i data-lucide="printer"></i> Tabuleiro</a><a class="btn ouro pequeno" href="#entrar">Jogar grátis</a></nav>
+    <nav><a class="btn fantasma pequeno" href="conta.html"><i data-lucide="log-in"></i> Entrar</a><a class="btn ouro pequeno" href="conta.html?modo=cadastro">Jogar grátis</a></nav>
   </header>
 
   <section class="heroi">
@@ -92,7 +92,7 @@
         <p style="font-family:var(--titulo);color:var(--ouro);letter-spacing:.2em;font-size:.85rem;margin:0 0 10px">RPG DE MESA EM REALIDADE AUMENTADA</p>
         <h1>Seu tabuleiro de papel vira um <em>mundo vivo</em>.</h1>
         <p class="lead">Imprima duas folhas, aponte o celular e veja heróis, monstros e magias andando sobre a mesa. Cada amigo joga no próprio celular, todos na mesma campanha, com regras de d20 no estilo Dungeons &amp; Dragons.</p>
-        <div class="ctas"><a class="btn ouro" href="#entrar"><i data-lucide="swords"></i> Criar uma mesa grátis</a><a class="btn" href="#como"><i data-lucide="play"></i> Como funciona</a></div>
+        <div class="ctas"><a class="btn ouro" href="conta.html?modo=cadastro"><i data-lucide="swords"></i> Criar conta e jogar grátis</a><a class="btn" href="#como"><i data-lucide="play"></i> Como funciona</a></div>
         <div class="selo"><span><i data-lucide="users"></i> 2 a 5 jogadores</span><span><i data-lucide="hourglass"></i> cerca de 2 horas</span><span><i data-lucide="smartphone"></i> sem instalar nada</span></div>
       </div>
       <div class="ilustra" aria-hidden="true">
@@ -106,7 +106,7 @@
     <div class="sec-titulo"><h2>Três passos até a primeira rolagem</h2><p>O material impresso é simples. A mágica acontece na tela.</p></div>
     <div class="passos">
       <div class="passo painel ornato"><div class="num"><i data-lucide="printer"></i></div><h3>Imprima o tabuleiro</h3><p>Duas folhas A4 com 48 casas codificadas. Cada casa tem um código que o celular reconhece, então qualquer pedaço visível já basta para o mundo aparecer.</p></div>
-      <div class="passo painel ornato"><div class="num"><i data-lucide="qr-code"></i></div><h3>Monte a mesa</h3><p>Quem cria a mesa recebe um código e um QR. Os amigos escaneiam, cada um escolhe seu herói e ninguém precisa baixar aplicativo.</p></div>
+      <div class="passo painel ornato"><div class="num"><i data-lucide="qr-code"></i></div><h3>Chame o grupo</h3><p>Crie sua conta, abra uma campanha e mande o link pelo WhatsApp ou mostre o QR. Cada amigo entra com a própria conta e escolhe seu herói, sem baixar aplicativo.</p></div>
       <div class="passo painel ornato"><div class="num"><i data-lucide="scan-line"></i></div><h3>Aponte e jogue</h3><p>A câmera mostra o vilarejo, a floresta e a cripta em 3D sobre o papel. Toque nas casas para andar, atacar, conversar e lançar magias.</p></div>
     </div>
   </section>
@@ -152,31 +152,37 @@
     </div>
   </section>
 
-  <section class="bloco" id="entrar">
-    <div class="sec-titulo"><h2>Sente-se à mesa</h2><p>O Capítulo I é gratuito. Crie a mesa no seu celular e chame o grupo.</p></div>
-    <div class="formularios">
-      <form class="painel ornato" id="f-criar">
-        <h3><i data-lucide="crown"></i> Criar uma mesa</h3>
-        <p style="color:var(--texto2);margin-top:0">Você será o anfitrião: começa a campanha e tem as ferramentas do mestre.</p>
-        <div class="campo"><label for="c-nome">Seu nome</label><input id="c-nome" maxlength="24" required autocomplete="nickname" placeholder="Como o grupo te chama"></div>
-        <button class="btn ouro" style="width:100%">Criar mesa e chamar o grupo</button>
-        <p class="msg" id="c-msg"></p>
-        <div class="mesas-salvas" id="mesas-salvas"></div>
-      </form>
-      <form class="painel ornato" id="f-entrar">
-        <h3><i data-lucide="log-in"></i> Entrar com código</h3>
-        <p style="color:var(--texto2);margin-top:0">Peça o código de 5 letras para quem criou a mesa, ou escaneie o QR dela.</p>
-        <div class="campo"><label for="e-cod">Código da mesa</label><input id="e-cod" maxlength="5" required placeholder="Ex.: K7RQX" style="text-transform:uppercase;letter-spacing:.3em;font-family:var(--titulo)"></div>
-        <div class="campo"><label for="e-nome">Seu nome</label><input id="e-nome" maxlength="24" required autocomplete="nickname"></div>
-        <button class="btn" style="width:100%">Entrar na mesa</button>
-        <p class="msg" id="e-msg"></p>
-      </form>
+  <section class="bloco">
+    <div class="sec-titulo"><h2>Capítulo II: A Coroa do Rei Corvo</h2><p>Ferrofundo, uma vila de mineiros nas Montanhas Cinzentas. Um culto roubou a coroa do necromante e quer coroá-lo de novo na lua cheia. Os heróis do Capítulo I seguem para cá com o mesmo nível, os mesmos itens e as escolhas que fizeram.</p></div>
+    <div class="cenas">
+      <div class="cena painel"><div class="n">I</div><div><h3>Ferrofundo</h3><p>Uma emboscada na praça, um ferreiro anão e uma prefeita que esconde um segredo de família.</p></div></div>
+      <div class="cena painel"><div class="n">II</div><div><h3>A Boca da Mina</h3><p>Trilhos, aranhas gigantes e um vagonete carregado que pode resolver a briga.</p></div></div>
+      <div class="cena painel"><div class="n">III</div><div><h3>O Lago Sem Fundo</h3><p>Um troll que só deixa passar quem acerta três charadas. E ele odeia perder.</p></div></div>
+      <div class="cena painel"><div class="n">IV</div><div><h3>A Forja dos Antigos</h3><p>Guardiões de pedra, uma forja apagada há trezentos anos e o aço estelar.</p></div></div>
+      <div class="cena painel"><div class="n">V</div><div><h3>O Ninho das Penas Negras</h3><p>A Irmã Corvina ouve a voz da coroa. Ela pode ser salva, ou não.</p></div></div>
+      <div class="cena painel"><div class="n">VI</div><div><h3>O Trono de Ossos</h3><p>Lua cheia. Três braseiros de almas protegem o Rei Corvo. Apaguem o fogo antes que ele se levante.</p></div></div>
     </div>
   </section>
 
-  <section class="bloco" id="capitulo2" style="padding-top:20px">
+  <section class="bloco" id="entrar">
+    <div class="sec-titulo"><h2>Sente-se à mesa</h2><p>Os dois capítulos são gratuitos. Crie sua conta, abra uma campanha e chame o grupo. Ela fica salva para vocês continuarem outro dia.</p></div>
+    <div class="formularios">
+      <div class="painel ornato">
+        <h3><i data-lucide="crown"></i> Primeira vez aqui</h3>
+        <p style="color:var(--texto2);margin-top:0">Nome, apelido, e-mail e senha. Leva menos de um minuto.</p>
+        <a class="btn ouro" href="conta.html?modo=cadastro" style="width:100%">Criar conta e jogar grátis</a>
+      </div>
+      <div class="painel ornato">
+        <h3><i data-lucide="log-in"></i> Já tenho conta</h3>
+        <p style="color:var(--texto2);margin-top:0">Veja suas campanhas, continue de onde parou ou entre com o código que um amigo mandou.</p>
+        <a class="btn" href="conta.html" style="width:100%">Minhas campanhas</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloco" id="capitulo3" style="padding-top:20px">
     <form class="painel ornato" id="f-aviso" style="padding:26px;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:end">
-      <div><h3 style="margin-bottom:4px">O Rei Corvo não estava inteiro naquele sino.</h3><p style="color:var(--texto2);margin:0 0 10px">O Capítulo II está sendo escrito. Deixe seu e-mail e avisamos quando sair.</p>
+      <div><h3 style="margin-bottom:4px">Mãe Lodo ainda espera o crânio.</h3><p style="color:var(--texto2);margin:0 0 10px">O Capítulo III está sendo escrito. Deixe seu e-mail e avisamos quando sair.</p>
         <div class="campo" style="margin:0"><label for="a-email">E-mail</label><input id="a-email" type="email" required autocomplete="email" placeholder="voce@email.com"></div></div>
       <button class="btn ouro"><i data-lucide="bell"></i> Avise-me</button>
       <p class="msg" id="a-msg" style="grid-column:1/-1;margin:0"></p>
@@ -185,8 +191,8 @@
 
   <footer class="rodape">
     <div class="bloco">
-      <p><b class="marca" style="font-size:1rem">RUNA</b> · campanha original "A Noite do Sino Morto". Regras inspiradas no sistema d20.</p>
-      <p>Modelos 3D: <a href="https://kaylousberg.com" target="_blank" rel="noopener">KayKit, de Kay Lousberg</a> (CC0) e Fox do repositório glTF da Khronos (CC BY 4.0, tomkranis, AsoboStudio e scurest). Reconhecimento de marcadores: <a href="https://github.com/damianofalcioni/js-aruco2" target="_blank" rel="noopener">js-aruco2</a>. 3D: <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a>. Ícones: <a href="https://lucide.dev" target="_blank" rel="noopener">Lucide</a>.</p>
+      <p><b class="marca" style="font-size:1rem">RUNA</b> · campanhas originais "A Noite do Sino Morto" e "A Coroa do Rei Corvo". Regras inspiradas no sistema d20.</p>
+      <p>Modelos 3D: <a href="https://kaylousberg.com" target="_blank" rel="noopener">KayKit, de Kay Lousberg</a> (CC0) e <a href="https://quaternius.com" target="_blank" rel="noopener">Quaternius</a> (CC0; o monstro "Big arm" em CC BY), via <a href="https://poly.pizza" target="_blank" rel="noopener">Poly Pizza</a>. Retratos dos heróis gerados com FLUX no Hugging Face. Reconhecimento de marcadores: <a href="https://github.com/damianofalcioni/js-aruco2" target="_blank" rel="noopener">js-aruco2</a>. 3D: <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a>. Ícones: <a href="https://lucide.dev" target="_blank" rel="noopener">Lucide</a>.</p>
       <p><a href="admin.html">Painel do administrador</a></p>
     </div>
   </footer>
@@ -194,6 +200,7 @@
   <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/campanha.js"></script>
+  <script src="js/campanha2.js"></script>
   <script src="js/regras.js"></script>
   <script type="module">
     import * as Rede from './js/rede.js';
@@ -202,41 +209,18 @@
     const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const IC = { guerreiro: 'shield', barbara: 'axe', maga: 'wand-sparkles', ladina: 'venetian-mask', cacadora: 'crosshair' };
     document.querySelector('.papel').innerHTML = '<i></i>'.repeat(48);
-    $('#herois').innerHTML = Object.entries(R.CLASSES).map(([k, c]) => `<article class="card-heroi painel ornato"><div class="retrato"><i data-lucide="${IC[k]}"></i></div><h3>${esc(c.heroi)}</h3><p style="color:var(--ouro)">${esc(c.nome)}</p><p>${esc(c.desc)}</p></article>`).join('');
+    $('#herois').innerHTML = Object.entries(R.CLASSES).map(([k, c]) => `<article class="card-heroi painel ornato"><div class="retrato"><img src="assets/retratos/${k}.webp" alt="" onerror="this.remove()"><i data-lucide="${IC[k]}"></i></div><h3>${esc(c.heroi)}</h3><p style="color:var(--ouro)">${esc(c.nome)}</p><p>${esc(c.desc)}</p></article>`).join('');
     lucide.createIcons();
-    const nome = Rede.meuNome();
-    $('#c-nome').value = nome; $('#e-nome').value = nome;
+    // link antigo de mesa (index.html?sala=XXXXX) vai direto para a campanha
     const cod = new URLSearchParams(location.search).get('sala');
-    if (cod) $('#e-cod').value = cod.toUpperCase();
-    const salvas = Rede.remoto ? [] : Rede.mesasLocais().slice(0, 4);
-    if (salvas.length) $('#mesas-salvas').innerHTML = '<small style="color:var(--texto3)">Mesas neste aparelho:</small><br>' + salvas.map((m) => `<a class="btn pequeno fantasma" href="jogo.html?sala=${m.sala}">${m.sala} · ${m.fase === 'lobby' ? 'esperando' : esc((R.CENAS[m.cenaIdx] || {}).titulo || 'fim')}</a>`).join('');
-
-    $('#f-criar').onsubmit = async (ev) => {
-      ev.preventDefault();
-      const n = $('#c-nome').value.trim();
-      if (!n) return;
-      Rede.salvarNome(n);
-      $('#c-msg').className = 'msg'; $('#c-msg').textContent = 'Preparando a mesa...';
-      try { const s = await Rede.criarMesa(n); location.href = 'jogo.html?sala=' + s; }
-      catch (e) { $('#c-msg').className = 'msg erro'; $('#c-msg').textContent = e.message; }
-    };
-    $('#f-entrar').onsubmit = (ev) => {
-      ev.preventDefault();
-      const c = $('#e-cod').value.trim().toUpperCase(), n = $('#e-nome').value.trim();
-      if (!Rede.codigoValido(c)) { $('#e-msg').className = 'msg erro'; $('#e-msg').textContent = 'O código tem 5 letras ou números, por exemplo K7RQX.'; return; }
-      if (n) Rede.salvarNome(n);
-      location.href = 'jogo.html?sala=' + c;
-    };
+    if (cod && Rede.codigoValido(cod.toUpperCase())) location.href = 'jogo.html?sala=' + cod.toUpperCase();
     $('#f-aviso').onsubmit = async (ev) => {
       ev.preventDefault();
       const email = $('#a-email').value.trim();
-      const api = (window.RUNA_CONFIG.API_URL || '').trim();
       try {
-        if (api) {
-          const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ a: 'interesse', email }) }).then((r) => r.json());
-          if (!r.ok) throw new Error(r.erro);
-        } else localStorage.setItem('runa_interesse', email);
-        $('#a-msg').className = 'msg'; $('#a-msg').textContent = 'Anotado. Você vai saber primeiro quando o Capítulo II sair.';
+        const r = await Rede.interesse(email);
+        if (!r.ok) throw new Error(r.erro);
+        $('#a-msg').className = 'msg'; $('#a-msg').textContent = 'Anotado. Você vai saber primeiro quando o Capítulo III sair.';
         $('#f-aviso').reset();
       } catch (e) { $('#a-msg').className = 'msg erro'; $('#a-msg').textContent = 'Não deu para salvar agora. Tente de novo em instantes.'; }
     };
