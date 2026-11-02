@@ -16,6 +16,9 @@ const VIS = {
   maga: { m: 'Mage', ver: ['2H_Staff'], h: 0.95 },
   ladina: { m: 'Rogue', ver: ['Knife', 'Knife_Offhand'], h: 0.9 },
   cacadora: { m: 'Rogue_Hooded', ver: ['2H_Crossbow'], h: 0.92 },
+  clerigo: { m: 'Mage', ver: ['2H_Staff'], tint: 0xfff2d8, h: 0.95, contorno: 0xffe08a },
+  bardo: { m: 'Rogue', ver: ['Knife'], tint: 0xe09080, h: 0.9 },
+  paladino: { m: 'Knight', ver: ['2H_Sword'], tint: 0xfff0c0, h: 0.98, contorno: 0xffe08a },
   bjorn: { m: 'Barbarian', ver: ['Mug'], tint: 0xe8d6b8, h: 1.02 },
   alda: { m: 'Mage', ver: ['2H_Staff'], tint: 0xa8a2b4, h: 0.86 },
   ravna: { m: 'Rogue_Hooded', ver: ['Knife'], tint: 0x6c6a78, h: 0.93 },
@@ -1305,6 +1308,22 @@ export class Mundo {
       this._onda(a.raiz.position, 0xffd0a0, 1.4);
       return;
     }
+    if (fx === 'luz') {
+      this._umaVez(a, 'magia');
+      await esperar(300);
+      if (b) {
+        const raio = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.3, 4, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff0a0, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+        raio.position.copy(b.raiz.position).setY(2); this.camadaFx.add(raio);
+        this._faiscas(b.raiz.position, 0xfff0a0, 24, true);
+        await this._tween(500, (t) => { raio.material.opacity = 0.7 * (1 - t); });
+        this.camadaFx.remove(raio);
+      }
+      return;
+    }
+    if (fx === 'zombaria') { this._umaVez(a, 'provocar'); if (b) this._flutuar(textoSprite('Ha!', '#ffb0e0', 70), b.raiz.position); return esperar(450); }
+    if (fx === 'palavra' || fx === 'impor' || fx === 'inspirar') { this._umaVez(a, 'magia'); if (b) this._faiscas(b.raiz.position, fx === 'inspirar' ? 0xffb0ff : 0xfff0a0, 22, true); return esperar(400); }
+    if (fx === 'cura_massa' || fx === 'cancao' || fx === 'bencao' || fx === 'aura') { this._umaVez(a, 'erguer'); this._onda(a.raiz.position, fx === 'cancao' ? 0xffb0ff : 0xffe08a, fx === 'aura' ? 2.2 : 3); return esperar(450); }
+    if (fx === 'divino') { this._umaVez(a, 'provocar'); this._anelMagico(a.raiz.position, 0xffe08a); return esperar(400); }
     if (fx === 'veneno') { this._umaVez(a, 'usar'); this._faiscas(a.raiz.position, 0x8aff5a, 22, true); return esperar(400); }
     if (fx === 'surto') { this._umaVez(a, 'provocar'); this._anelMagico(a.raiz.position, 0xffd36a); this._faiscas(a.raiz.position, 0xffe08a, 24, true); return esperar(450); }
     if (fx === 'procurar') { this._umaVez(a, 'interagir'); this._onda(a.raiz.position, 0xffe08a, 2.5); return esperar(500); }
@@ -1420,6 +1439,25 @@ export class Mundo {
     if (p.z > 1) return null;
     return { x: (p.x + 1) / 2 * this.W, y: (1 - p.y) / 2 * this.H };
   }
+  // A câmera da Mesa 3D acompanha o herói do jogador (dá para girar e dar zoom à vontade).
+  seguir(id) {
+    if (!this.alvoSeguir && this.modo !== 'ar') {
+      // primeira vez: chega mais perto, com o grupo em volta ainda à vista
+      const off = this.camera.position.clone().sub(this.controles.target).multiplyScalar(0.62);
+      this.camera.position.copy(this.controles.target).add(off);
+    }
+    this.alvoSeguir = id;
+  }
+  _seguirQuadro(dt) {
+    const v = this.alvoSeguir && this.un.get(this.alvoSeguir);
+    if (!v || this.modo === 'ar') return;
+    const desejado = v.raiz.position.clone().setY(0.3);
+    const delta = desejado.sub(this.controles.target);
+    if (delta.lengthSq() < 1e-6) return;
+    delta.multiplyScalar(Math.min(1, dt * 3.5));
+    this.controles.target.add(delta);
+    this.camera.position.add(delta);
+  }
   focar(id) {
     const v = this.un.get(id);
     if (!v || this.modo === 'ar') return;
@@ -1466,6 +1504,7 @@ export class Mundo {
     }
     if (this.particulas) this._moverParticulas(dt, agora);
     if (this.modo !== 'ar') {
+      this._seguirQuadro(dt);
       this.controles.update();
       if (this.tremer > 0) {
         this.tremer = Math.max(0, this.tremer - dt);

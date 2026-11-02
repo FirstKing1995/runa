@@ -34,6 +34,7 @@
     .novas { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
     .nova { padding: 20px; display: flex; flex-direction: column; gap: 6px; }
     .nova .sobretitulo { margin: 0; }
+    .nova-capa { margin: -20px -20px 8px; aspect-ratio: 16 / 7; border-radius: 10px 10px 0 0; background: #1a130c center / cover; }
     .nova h3 { font-size: 1.2rem; margin: 0; }
     .nova p { color: var(--texto2); margin: 0 0 8px; font-size: 0.95rem; }
     .nova .btn { margin-top: auto; }
@@ -162,7 +163,7 @@
     const $ = (s) => document.querySelector(s);
     const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const icones = () => window.lucide && lucide.createIcons();
-    const IC = { guerreiro: 'shield', barbara: 'axe', maga: 'wand-sparkles', ladina: 'venetian-mask', cacadora: 'crosshair' };
+    const IC = { guerreiro: 'shield', barbara: 'axe', maga: 'wand-sparkles', ladina: 'venetian-mask', cacadora: 'crosshair', clerigo: 'sun', bardo: 'music', paladino: 'shield-plus' };
     const params = new URLSearchParams(location.search);
     const volta = params.get('volta');
     const msg = (id, t, tipo = '') => { const m = $(id); m.className = 'msg ' + tipo; m.textContent = t; };
@@ -241,6 +242,7 @@
       $('#saudacao').textContent = 'Olá, ' + s.conta.apelido + '. A mesa está posta.';
       $('#p-nome').value = s.conta.nome; $('#p-apelido').value = s.conta.apelido;
       $('#novas').innerHTML = Object.values(R.CAPITULOS).map((c) => `<article class="nova painel ornato">
+        <div class="nova-capa" style="background-image:url(assets/arte/${c.id === 'sino' ? 'capitulo1' : 'capitulo2'}.webp)"></div>
         <p class="sobretitulo">Capítulo ${esc(c.num)}${c.nivelInicial > 1 ? ' · heróis no nível ' + c.nivelInicial : ''}</p>
         <h3>${esc(c.titulo)}</h3><p>${esc(c.resumo)}</p>
         <button class="btn ${c.id === 'sino' ? 'ouro' : ''}" data-novo="${c.id}"><i data-lucide="swords"></i> Criar e chamar o grupo</button></article>`).join('');

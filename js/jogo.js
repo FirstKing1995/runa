@@ -13,7 +13,7 @@ const icones = () => window.lucide && window.lucide.createIcons();
 const sala = (new URLSearchParams(location.search).get('sala') || '').toUpperCase();
 const SESSAO = Rede.sessao();
 const EU = SESSAO ? SESSAO.conta.id : null;
-const ICONE_CLASSE = { guerreiro: 'shield', barbara: 'axe', maga: 'wand-sparkles', ladina: 'venetian-mask', cacadora: 'crosshair' };
+const ICONE_CLASSE = { guerreiro: 'shield', barbara: 'axe', maga: 'wand-sparkles', ladina: 'venetian-mask', cacadora: 'crosshair', clerigo: 'sun', bardo: 'music', paladino: 'shield-plus' };
 const ANIMAIS = new Set(['lobo', 'aranha', 'aranha_mae', 'rato', 'troll', 'golem']);
 // Retrato ilustrado (assets/retratos); se a imagem faltar, fica o ícone da classe.
 function retrato(classe, extra = '', icone) {
@@ -199,7 +199,6 @@ async function tratar(ev, rapido) {
         Som.sfx('vez');
         if (navigator.vibrate) navigator.vibrate([60, 60, 60]);
         if (!rapido) await faixa('Sua vez', nomeDe(ev.id), 1100);
-        mundo.focar(ev.id);
       } else if (!rapido && E.u[ev.id] && E.u[ev.id].lado === 'heroi') toast('Vez de ' + nomeDe(ev.id));
       if (!rapido && E.u[ev.id] && E.u[ev.id].lado === 'inimigo') await esperar(250);
       return;
@@ -210,7 +209,7 @@ async function tratar(ev, rapido) {
     case 'saida': toast('Caminho livre: vá até a casa ' + R.nomeCasa(ev.x, ev.y) + ' e toque em Seguir viagem.'); return;
     case 'som': Som.sfx(ev.som); return mundo.animar(ev, E);
     case 'hab': {
-      const s = { fogo: null, bola: 'fogo', chuva: 'virote', misseis: 'magia', trovao: 'trovao', furia: 'combate', surto: 'combate', giro: 'aco', veneno: 'moeda', pocao: 'cura', balsamo: 'cura', folego: 'cura', marca: 'virote' }[ev.fx];
+      const s = { luz: 'magia', zombaria: 'erro', palavra: 'cura', cura_massa: 'cura', impor: 'cura', cancao: 'cura', inspirar: 'magia', bencao: 'nivel', divino: 'aco', aura: 'magia', fogo: null, bola: 'fogo', chuva: 'virote', misseis: 'magia', trovao: 'trovao', furia: 'combate', surto: 'combate', giro: 'aco', veneno: 'moeda', pocao: 'cura', balsamo: 'cura', folego: 'cura', marca: 'virote' }[ev.fx];
       if (s) Som.sfx(s);
       if (!rapido) toast(nomeDe(ev.de) + ': ' + ev.nome);
       return mundo.animar(ev, E);
@@ -380,6 +379,7 @@ function renderLobby() {
   }).join('');
   const qtd = E.ordemHerois.length;
   $('#lobby-miolo').innerHTML = `
+    <div class="capa-lobby" style="background-image:url(assets/arte/${cap.id === 'sino' ? 'capitulo1' : 'capitulo2'}.webp)"></div>
     <div style="text-align:center;margin-bottom:14px"><a class="marca" href="conta.html" style="font-size:2.2rem;text-decoration:none">RUNA</a><p style="color:var(--texto2);margin:0">Capítulo ${esc(cap.num)} · ${esc(cap.titulo)}</p></div>
     ${E.origem ? `<p class="painel" style="padding:10px 14px;font-size:.9rem;color:var(--texto2)"><i data-lucide="scroll-text"></i> O grupo do Capítulo I continua aqui: mesmos heróis, nível ${E.nivel}, ${E.ouro} moedas e as escolhas que vocês fizeram.</p>` : ''}
     <div class="codigo-mesa painel ornato">
@@ -394,11 +394,11 @@ function renderLobby() {
     </div>
     <h3>Na mesa</h3><div class="jogadores">${jog}</div>
     <h3>Escolha seu herói</h3>
-    <p style="color:var(--texto2);margin-top:-4px">Cada jogador escolhe um. Quem estiver sozinho pode controlar mais de um herói.</p>
+    <p style="color:var(--texto2);margin-top:-4px">Cada pessoa joga com um herói, no próprio celular. Escolher outro troca o seu.</p>
     <div class="grade-herois">${cards}</div>
     <div style="margin:22px 0 10px;text-align:center">
       ${host ? `<button class="btn ouro" id="bt-iniciar" ${qtd ? '' : 'disabled'} style="min-width:260px"><i data-lucide="swords"></i> Começar a campanha (${qtd} herói${qtd === 1 ? '' : 's'})</button>
-        <p style="color:var(--texto3);font-size:.85rem">Recomendado: 2 a 5 heróis. Quem chegar depois ainda pode entrar no meio da aventura.</p>`
+        <p style="color:var(--texto3);font-size:.85rem">De 1 a 8 heróis. Grupos maiores enfrentam inimigos mais fortes. Quem chegar depois ainda pode entrar no meio da aventura.</p>`
         : `<p style="color:var(--texto2)">Aguardando ${esc((E.jogadores[E.host] || {}).nome || 'o anfitrião')} começar a campanha...</p>`}
     </div>`;
   if (window.qrcode) { const q = window.qrcode(0, 'M'); q.addData(link); q.make(); $('#qr').innerHTML = q.createImgTag(4, 6, 'QR code da mesa'); }
@@ -424,8 +424,20 @@ function renderLobby() {
 // ---------------------------------------------------------------- ordem de iniciativa
 function renderOrdem() {
   const o = $('#ordem');
-  if (!E.combate) { o.innerHTML = ''; return; }
+  const aviso = $('#vez-aviso');
+  const meu = meusHerois()[0];
+  if (meu && mundo) mundo.seguir(meu.id);
+  if (!E.combate) { o.innerHTML = ''; aviso.hidden = true; return; }
   const vez = R.vezDe(E);
+  const uv = E.u[vez];
+  aviso.hidden = !uv;
+  if (uv) {
+    const minha = uv.lado === 'heroi' && uv.dono === EU;
+    aviso.className = 'vez-aviso painel ' + (minha ? 'minha' : uv.lado);
+    aviso.innerHTML = minha ? `<i data-lucide="sword"></i> Sua vez, ${esc(uv.nome)}`
+      : uv.lado === 'heroi' ? `<i data-lucide="hourglass"></i> Vez de ${esc(uv.nome)} <small>jogada por ${esc((E.jogadores[uv.dono] || {}).nome || '?')}</small>`
+        : `<i data-lucide="skull"></i> Os inimigos agem: ${esc(uv.nome)}`;
+  }
   o.innerHTML = E.combate.ordem.filter((id) => E.u[id]).map((id) => {
     const u = E.u[id];
     const ic = u.lado === 'heroi' ? ICONE_CLASSE[u.classe] : ANIMAIS.has(u.tipo) ? 'paw-print' : 'skull';
@@ -470,7 +482,7 @@ function renderHud() {
         ${ef.join('')}
       </div>
     </div>
-    ${outros.length ? `<div class="trocar-heroi">${outros.map((o) => `<button class="btn btn-icone fantasma" data-trocar="${o.id}" aria-label="${esc(o.nome)}"><i data-lucide="${ICONE_CLASSE[o.classe]}"></i></button>`).join('')}</div>` : ''}`;
+    ${outros.length ? `<div class="trocar-heroi ${outros.length > 2 ? 'muitos' : ''}">${outros.map((o) => `<button class="btn btn-icone fantasma" data-trocar="${o.id}" aria-label="${esc(o.nome)}"><i data-lucide="${ICONE_CLASSE[o.classe]}"></i></button>`).join('')}</div>` : ''}`;
   const cn = R.cena(E);
   const naSaida = cn && cn.saida && E.saida && h.x === cn.saida[0] && h.y === cn.saida[1];
   const btns = [];

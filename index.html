@@ -19,6 +19,12 @@
     .bloco { width: min(1100px, 100%); margin: 0 auto; padding: 72px 16px; }
     .heroi { position: relative; min-height: 92vh; display: grid; align-items: center; overflow: hidden; }
     .heroi::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 70% 60% at 70% 40%, rgba(224, 112, 58, 0.22), transparent 60%), radial-gradient(ellipse 50% 50% at 20% 80%, rgba(143, 184, 255, 0.10), transparent 60%); }
+    .heroi .arte { position: absolute; inset: 0; background-size: cover; background-position: 70% 50%; opacity: 0; transition: opacity 1.2s ease; }
+    .heroi .arte.pronta { opacity: 1; }
+    .heroi .arte::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(13, 11, 9, 0.96) 0%, rgba(13, 11, 9, 0.82) 38%, rgba(13, 11, 9, 0.2) 70%, rgba(13, 11, 9, 0.35) 100%), linear-gradient(0deg, var(--fundo) 0%, transparent 25%); }
+    .heroi.com-arte .ilustra { visibility: hidden; }
+    .capa-cap { width: 100%; aspect-ratio: 16 / 7; border-radius: 10px; background: #1a130c center / cover; margin-bottom: 18px; border: 1px solid var(--borda); }
+    @media (max-width: 900px) { .heroi .arte::after { background: linear-gradient(0deg, rgba(13, 11, 9, 0.97) 0%, rgba(13, 11, 9, 0.75) 55%, rgba(13, 11, 9, 0.35) 100%); } .heroi.com-arte .ilustra { display: none; } }
     .heroi .bloco { position: relative; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; padding-top: 40px; }
     .heroi h1 { font-size: clamp(2.2rem, 6.4vw, 4.2rem); line-height: 1.04; margin-bottom: 18px; }
     .heroi h1 em { font-style: normal; color: var(--brasa); }
@@ -52,7 +58,7 @@
     .cena .n { flex: none; font-family: var(--titulo); font-size: 1.8rem; color: var(--borda-clara); line-height: 1; }
     .cena h3 { font-size: 1rem; margin-bottom: 4px; }
     .cena p { margin: 0; font-size: 0.9rem; color: var(--texto2); }
-    .herois { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .herois { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
     .herois .card-heroi { text-align: center; align-items: center; }
     .herois .retrato { width: 64px; height: 64px; font-size: 1.8rem; }
     .dois { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
@@ -87,13 +93,14 @@
   </header>
 
   <section class="heroi">
+    <div class="arte" aria-hidden="true"></div>
     <div class="bloco">
       <div>
         <p style="font-family:var(--titulo);color:var(--ouro);letter-spacing:.2em;font-size:.85rem;margin:0 0 10px">RPG DE MESA EM REALIDADE AUMENTADA</p>
         <h1>Seu tabuleiro de papel vira um <em>mundo vivo</em>.</h1>
         <p class="lead">Imprima duas folhas, aponte o celular e veja heróis, monstros e magias andando sobre a mesa. Cada amigo joga no próprio celular, todos na mesma campanha, com regras de d20 no estilo Dungeons &amp; Dragons.</p>
         <div class="ctas"><a class="btn ouro" href="conta.html?modo=cadastro"><i data-lucide="swords"></i> Criar conta e jogar grátis</a><a class="btn" href="#como"><i data-lucide="play"></i> Como funciona</a></div>
-        <div class="selo"><span><i data-lucide="users"></i> 2 a 5 jogadores</span><span><i data-lucide="hourglass"></i> cerca de 2 horas</span><span><i data-lucide="smartphone"></i> sem instalar nada</span></div>
+        <div class="selo"><span><i data-lucide="users"></i> 1 a 8 jogadores</span><span><i data-lucide="hourglass"></i> cerca de 2 horas</span><span><i data-lucide="smartphone"></i> sem instalar nada</span></div>
       </div>
       <div class="ilustra" aria-hidden="true">
         <div class="papel"></div>
@@ -112,6 +119,7 @@
   </section>
 
   <section class="bloco">
+    <div class="capa-cap" data-capa="capitulo1" hidden></div>
     <div class="sec-titulo"><h2>Capítulo I: A Noite do Sino Morto</h2><p>Há três noites o sino da torre velha de Pedrafria toca sozinho. A cada badalada, alguém some na névoa. A neta da anciã é a próxima.</p></div>
     <div class="cenas">
       <div class="cena painel"><div class="n">I</div><div><h3>O Javali Manco</h3><p>Uma taverna na nevasca, uma anciã desesperada e algo arranhando o alçapão do porão.</p></div></div>
@@ -124,7 +132,7 @@
   </section>
 
   <section class="bloco">
-    <div class="sec-titulo"><h2>Escolha seu herói</h2><p>Cinco classes com habilidades próprias, que sobem de nível ao longo da campanha.</p></div>
+    <div class="sec-titulo"><h2>Escolha seu herói</h2><p>Oito heróis com habilidades próprias, um para cada pessoa do grupo, que sobem de nível ao longo das campanhas.</p></div>
     <div class="herois" id="herois"></div>
   </section>
 
@@ -153,6 +161,7 @@
   </section>
 
   <section class="bloco">
+    <div class="capa-cap" data-capa="capitulo2" hidden></div>
     <div class="sec-titulo"><h2>Capítulo II: A Coroa do Rei Corvo</h2><p>Ferrofundo, uma vila de mineiros nas Montanhas Cinzentas. Um culto roubou a coroa do necromante e quer coroá-lo de novo na lua cheia. Os heróis do Capítulo I seguem para cá com o mesmo nível, os mesmos itens e as escolhas que fizeram.</p></div>
     <div class="cenas">
       <div class="cena painel"><div class="n">I</div><div><h3>Ferrofundo</h3><p>Uma emboscada na praça, um ferreiro anão e uma prefeita que esconde um segredo de família.</p></div></div>
@@ -207,10 +216,14 @@
     const R = window.RUNA;
     const $ = (s) => document.querySelector(s);
     const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const IC = { guerreiro: 'shield', barbara: 'axe', maga: 'wand-sparkles', ladina: 'venetian-mask', cacadora: 'crosshair' };
+    const IC = { guerreiro: 'shield', barbara: 'axe', maga: 'wand-sparkles', ladina: 'venetian-mask', cacadora: 'crosshair', clerigo: 'sun', bardo: 'music', paladino: 'shield-plus' };
     document.querySelector('.papel').innerHTML = '<i></i>'.repeat(48);
     $('#herois').innerHTML = Object.entries(R.CLASSES).map(([k, c]) => `<article class="card-heroi painel ornato"><div class="retrato"><img src="assets/retratos/${k}.webp" alt="" onerror="this.remove()"><i data-lucide="${IC[k]}"></i></div><h3>${esc(c.heroi)}</h3><p style="color:var(--ouro)">${esc(c.nome)}</p><p>${esc(c.desc)}</p></article>`).join('');
     lucide.createIcons();
+    // artes ilustradas: só aparecem se o arquivo existir
+    const carregarArte = (nome, fn) => { const i = new Image(); i.onload = () => fn('assets/arte/' + nome + '.webp'); i.src = 'assets/arte/' + nome + '.webp'; };
+    carregarArte('capa', (u) => { const a = $('.heroi .arte'); a.style.backgroundImage = `url(${u})`; a.classList.add('pronta'); $('.heroi').classList.add('com-arte'); });
+    document.querySelectorAll('[data-capa]').forEach((d) => carregarArte(d.dataset.capa, (u) => { d.style.backgroundImage = `url(${u})`; d.hidden = false; }));
     // link antigo de mesa (index.html?sala=XXXXX) vai direto para a campanha
     const cod = new URLSearchParams(location.search).get('sala');
     if (cod && Rede.codigoValido(cod.toUpperCase())) location.href = 'jogo.html?sala=' + cod.toUpperCase();

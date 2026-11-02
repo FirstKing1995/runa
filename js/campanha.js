@@ -67,6 +67,43 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       ],
       habs: ['marca', 'balsamo', 'chuva'],
       voz: { tom: 0.95, vel: 0.95 }
+    },
+    clerigo: {
+      nome: 'Clériga', heroi: 'Ingrid', vis: 'clerigo',
+      desc: 'A luz do sol em forma de gente. Cura o grupo e queima os mortos-vivos.',
+      frase: 'Enquanto eu estiver de pé, ninguém cai sozinho.',
+      pv: 10, pvNivel: 6, ca: 16, desl: 5,
+      atr: { for: 1, des: 0, con: 1, int: 0, sab: 3, car: 1 },
+      prof: ['medicina', 'intuicao', 'historia', 'persuasao'],
+      ataques: [{ n: 'Maça', b: 3, d: '1d6+1', alc: 1, anim: 'golpe' }],
+      habs: ['palavra', 'chama', 'bencao', 'cura_massa'],
+      magia: 2,
+      voz: { tom: 1.15, vel: 0.95 }
+    },
+    bardo: {
+      nome: 'Bardo', heroi: 'Lukas', vis: 'bardo',
+      desc: 'Uma canção para os amigos, uma piada cruel para os inimigos.',
+      frase: 'Essa história vai virar música. Se a gente sobreviver.',
+      pv: 9, pvNivel: 5, ca: 13, desl: 6,
+      atr: { for: -1, des: 2, con: 1, int: 1, sab: 0, car: 3 },
+      prof: ['persuasao', 'enganacao', 'intuicao', 'historia', 'acrobacia'],
+      ataques: [
+        { n: 'Rapieira', b: 4, d: '1d8+2', alc: 1, anim: 'golpe' },
+        { n: 'Adaga arremessada', b: 4, d: '1d4+2', alc: 4, anim: 'arremesso', fx: 'adaga' }
+      ],
+      habs: ['inspirar', 'zombaria', 'cancao'],
+      voz: { tom: 1.05, vel: 1.1 }
+    },
+    paladino: {
+      nome: 'Paladino', heroi: 'Aldric', vis: 'paladino',
+      desc: 'Juramento, aço e fé. Protege os aliados e derruba o mal com golpes sagrados.',
+      frase: 'Pelo juramento que fiz: nenhum inocente fica para trás.',
+      pv: 12, pvNivel: 7, ca: 18, desl: 5,
+      atr: { for: 3, des: -1, con: 2, int: 0, sab: 1, car: 2 },
+      prof: ['atletismo', 'intimidacao', 'persuasao', 'medicina'],
+      ataques: [{ n: 'Espada grande', b: 5, d: '2d6+3', alc: 1, anim: 'golpe2' }],
+      habs: ['impor', 'divino', 'aura'],
+      voz: { tom: 0.8, vel: 0.92 }
     }
   };
 
@@ -84,6 +121,17 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     balsamo: { n: 'Bálsamo de Ervas', ic: 'leaf', custo: 'acao', usos: 1, alvo: 'aliado', alc: 1, cura: '1d8+2', desc: 'Cura um aliado ao lado (ou você): 1d8+2.' },
     levantar: { n: 'Levantar aliado', ic: 'hand-helping', custo: 'acao', usos: null, alvo: 'caido', alc: 1, desc: 'Ajuda um aliado caído a voltar com 1 PV.' },
     esquivar: { n: 'Esquivar', ic: 'shield', custo: 'acao', usos: null, alvo: 'si', desc: 'Até seu próximo turno, ataques contra você têm desvantagem.' },
+    // clériga, bardo e paladino
+    palavra: { n: 'Palavra Curativa', ic: 'sun', custo: 'bonus', carga: true, alvo: 'aliado', alc: 6, cura: '1d6+3', desc: 'Cura um aliado a até 6 casas: 1d6+3. Gasta 1 magia.' },
+    chama: { n: 'Chama Sagrada', ic: 'sun-medium', custo: 'acao', usos: null, alvo: 'inimigo', alc: 6, salva: { atr: 'des', cd: 13 }, dano: '1d8', fx: 'luz', desc: 'Luz que desce do céu: 1d8 (dobra contra mortos-vivos). Nada se resistirem.' },
+    bencao: { n: 'Bênção', ic: 'hand-heart', custo: 'bonus', usos: 1, alvo: 'si', dur: 3, desc: 'Por 3 rodadas, o grupo a até 3 casas ganha +2 nos ataques.' },
+    cura_massa: { n: 'Cura em Massa', ic: 'heart-handshake', custo: 'acao', carga: true, alvo: 'si', cura: '2d8', nivel: 4, desc: 'Cura todos os aliados a até 3 casas: 2d8. Gasta 1 magia.' },
+    inspirar: { n: 'Inspiração', ic: 'music', custo: 'bonus', usos: 2, alvo: 'aliado', alc: 6, desc: 'Um aliado a até 6 casas soma +1d6 no próximo ataque ou teste.' },
+    zombaria: { n: 'Zombaria Cruel', ic: 'laugh', custo: 'acao', usos: null, alvo: 'inimigo', alc: 6, salva: { atr: 'sab', cd: 13 }, dano: '1d6', fx: 'zombaria', desc: 'Uma piada que dói: 1d6 e o alvo ataca com desvantagem. Nada se resistir.' },
+    cancao: { n: 'Canção de Bravura', ic: 'music-4', custo: 'acao', usos: 1, alvo: 'si', cura: '1d8', nivel: 4, desc: 'Todo o grupo a até 4 casas cura 1d8 e ganha Inspiração.' },
+    impor: { n: 'Imposição de Mãos', ic: 'hand-helping', custo: 'acao', usos: 1, alvo: 'aliado', alc: 1, cura: '2d8+2', desc: 'Cura você ou um aliado ao lado: 2d8+2. Levanta quem caiu.' },
+    divino: { n: 'Golpe Divino', ic: 'sword', custo: 'bonus', usos: 2, alvo: 'si', desc: 'Seu próximo acerto corpo a corpo causa +2d8 (+3d8 contra mortos-vivos).' },
+    aura: { n: 'Aura de Proteção', ic: 'shield-plus', custo: 'bonus', usos: 1, alvo: 'si', dur: 3, nivel: 4, desc: 'Por 3 rodadas, aliados a até 2 casas sofrem 3 de dano a menos por golpe.' },
     // nível 4
     surto: { n: 'Surto de Ação', ic: 'zap', custo: 'bonus', usos: 1, alvo: 'si', nivel: 4, desc: 'Ganha uma ação extra neste turno.' },
     giro: { n: 'Golpe Giratório', ic: 'rotate-cw', custo: 'acao', usos: 1, alvo: 'si', nivel: 4, desc: 'Ataca todos os inimigos ao seu redor.' },

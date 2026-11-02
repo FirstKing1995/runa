@@ -139,7 +139,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         if (t.b) continue;
         if (dx && dy && (R.terreno(e, cx + dx, cy).b || R.terreno(e, cx, cy + dy).b)) continue;
         var oc = R.ocupante(e, nx, ny, uid);
-        if (oc && !mesmoLado(u, oc)) continue;
+        if (oc && !mesmoLado(u, oc) && !(oc.lado === 'heroi' && oc.caido)) continue; // dá para passar por cima de um herói caído
         var nd = distm[k] + (t.dificil || (t.armadilha && t.armadilha.revelada) ? 2 : 1);
         if (nd > limite) continue;
         var nk = chave(nx, ny);
@@ -279,6 +279,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
   function aplicarDano(e, alvo, n, tipo, fonte) {
     if (alvo.lado === 'heroi') {
       if (alvo.efeitos.furia) n = Math.floor(n / 2);
+      if (alvo.efeitos.aura) n = Math.max(0, n - 3);
       if (tipo === 'necro' && e.inv.amuleto) n = Math.max(0, n - 3);
     }
     var mdef = alvo.lado === 'inimigo' ? R.MONSTROS[alvo.tipo] : null;
@@ -325,6 +326,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     var v = 0;
     if (alvo.efeitos && alvo.efeitos.esquiva) v--;
     if (atq.alc > 1 && inimigoAdjacente(e, at)) v--;
+    if (at.efeitos && at.efeitos.zombado) { v--; delete at.efeitos.zombado; }
     if (alvo.lado === 'heroi' && alvo.caido) v++;
     if (at.lado === 'inimigo' && R.MONSTROS[at.tipo] && R.MONSTROS[at.tipo].matilha) {
       for (var id in e.u) {
@@ -353,6 +355,8 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     var v = vantagem(e, at, alvo, atq);
     var r = rolarD20(e, v);
     var bon = (atq.b || 0) + (at.lado === 'heroi' ? bonusNivel(e) + (e.flags.lamina_estelar ? 1 : 0) : 0);
+    if (at.efeitos && at.efeitos.bencao) bon += 2;
+    if (at.efeitos && at.efeitos.inspirado) { bon += d(e, 6); delete at.efeitos.inspirado; }
     var total = r.nat + bon;
     var ca = alvo.ca || 10;
     var crit = r.nat === 20;
@@ -370,6 +374,10 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         dano += rolar(e, e.nivel >= 5 ? '3d6' : e.nivel >= 3 ? '2d6' : '1d6', crit).total; e.combate.furtivo = true; notas.push('furtivo');
       }
       if (at.efeitos.veneno) { dano += rolar(e, '2d6', crit).total; delete at.efeitos.veneno; notas.push('veneno'); }
+      if (at.efeitos.divino && atq.alc === 1) {
+        var morto = alvo.lado === 'inimigo' && R.MONSTROS[alvo.tipo] && R.MONSTROS[alvo.tipo].mv;
+        dano += rolar(e, morto ? '3d8' : '2d8', crit).total; delete at.efeitos.divino; notas.push('golpe divino');
+      }
       if (e.flags.lamina_estelar) { dano += rolar(e, '1d4', crit).total; notas.push('aço estelar'); }
       if (e.inv.oleo && alvo.lado === 'inimigo' && R.MONSTROS[alvo.tipo] && R.MONSTROS[alvo.tipo].mv) { dano += rolar(e, '1d4', crit).total; notas.push('prata'); }
       if (alvo.lado === 'objeto' && alvo.obj === 'sino' && e.flags.segredo_sino) { dano *= 2; notas.push('ponto fraco'); }
@@ -485,8 +493,10 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     for (var y = 0; y < R.LINHAS; y++) for (var x = 0; x < R.COLS; x++)
       if (c.mapa[y].charAt(x) === '^') e.armadilhas[chave(x, y)] = { revelada: false, desarmada: false };
     var hs = herois(e);
+    hs.forEach(function (h) { h.x = -9; h.y = -9; });
     hs.forEach(function (h, i) {
-      var p = c.entrada[i % c.entrada.length];
+      var ent = c.entrada[Math.min(i, c.entrada.length - 1)];
+      var p = casaLivreProxima(e, ent[0], ent[1]);
       h.x = p[0]; h.y = p[1];
       h.pv = h.pvMax; h.caido = false; h.efeitos = {}; h.usos = {};
       R.habsDe(h).forEach(function (k) { if (R.HABS[k].usos) h.usos[k] = R.HABS[k].usos + (e.nivel >= 2 ? 1 : 0); });
@@ -500,7 +510,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         u = novoMonstro(def, def.id, def.x, def.y);
         if (c.pacifico) u.pacifico = true;
         // grupo pequeno, ou derrotas seguidas na mesma cena: inimigos mais frágeis
-        var k = (n === 1 ? 0.7 : 1) * (1 - Math.min(0.4, 0.1 * ((e.tentativas || {})[idx] || 0)));
+        var k = (n === 1 ? 0.7 : n > 5 ? 1 + 0.15 * (n - 5) : 1) * (1 - Math.min(0.4, 0.1 * ((e.tentativas || {})[idx] || 0)));
         if (k < 1) u.pv = u.pvMax = Math.max(1, Math.ceil(u.pvMax * k));
       }
       else if (def.npc) {
@@ -574,6 +584,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       if (u.efeitos) {
         delete u.efeitos.esquiva;
         if (u.efeitos.furia) { u.efeitos.furia--; if (!u.efeitos.furia) delete u.efeitos.furia; }
+        ['bencao', 'aura'].forEach(function (k) { if (u.efeitos[k]) { u.efeitos[k]--; if (!u.efeitos[k]) delete u.efeitos[k]; } });
         if (u.efeitos.provocado && u.efeitos.provocado.ate < cb.rodada) delete u.efeitos.provocado;
       }
       if (u.lado === 'heroi') {
@@ -709,6 +720,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
   function teste(e, h, pericia, cd) {
     var p = R.PERICIAS[pericia];
     var b = atr(h, p[0]) + (R.CLASSES[h.classe].prof.indexOf(pericia) >= 0 ? 2 : 0);
+    if (h.efeitos && h.efeitos.inspirado) { b += d(e, 6); delete h.efeitos.inspirado; }
     var nat = d(e, 20), total = nat + b;
     var ok = nat === 20 || (nat !== 1 && total >= cd);
     ev(e, { t: 'teste', heroi: h.id, pericia: p[1], nat: nat, bonus: b, total: total, cd: cd, ok: ok });
@@ -786,6 +798,13 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     if (e.u[id]) {
       if (e.u[id].dono === c.jogador) { e.u[id].nome = String(c.nome || e.u[id].nome).slice(0, 18); return; }
       throw 'Outro jogador já escolheu ' + cl.nome + '.';
+    }
+    // cada pessoa joga com um herói só (o anfitrião pode assumir o de quem saiu, pelo mestre)
+    var meu = herois(e).filter(function (o) { return o.dono === c.jogador; })[0];
+    if (meu && !c.admin) {
+      if (e.fase !== 'lobby') throw 'Você já está jogando com ' + meu.nome + '.';
+      delete e.u[meu.id];
+      e.ordemHerois = e.ordemHerois.filter(function (x) { return x !== meu.id; });
     }
     var h = novoHeroi(c.classe, String(c.nome || cl.heroi).slice(0, 18), c.jogador);
     e.u[id] = h; e.ordemHerois.push(id);
@@ -900,6 +919,32 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       case 'balsamo': curar(e, alvo, rolar(e, hb.cura).total, h.id); break;
       case 'levantar': alvo.caido = false; alvo.pv = Math.max(1, alvo.pv); ev(e, { t: 'cura', alvo: alvo.id, de: h.id, valor: 1, pv: alvo.pv }); break;
       case 'esquivar': h.efeitos.esquiva = true; break;
+      case 'palavra': curar(e, alvo, rolar(e, hb.cura).total, h.id); break;
+      case 'chama':
+        var sc = d(e, 20) + 1;
+        if (sc >= hb.salva.cd) ev(e, { t: 'narra', texto: alvo.nome + ' desvia da luz sagrada.' });
+        else aplicarDano(e, alvo, rolar(e, (R.MONSTROS[alvo.tipo] || {}).mv ? '2d8' : hb.dano).total, 'luz', h.id);
+        break;
+      case 'bencao':
+        heroisDePe(e).filter(function (o) { return dist(o, h) <= 3; }).forEach(function (o) { o.efeitos.bencao = hb.dur + 1; });
+        ev(e, { t: 'narra', texto: h.nome + ' ergue o símbolo do sol. O grupo sente as mãos firmes.' });
+        break;
+      case 'cura_massa': heroisDePe(e).concat(herois(e).filter(function (o) { return o.caido; })).filter(function (o) { return dist(o, h) <= 3; }).forEach(function (o) { curar(e, o, rolar(e, hb.cura).total, h.id); }); break;
+      case 'inspirar': alvo.efeitos.inspirado = 1; ev(e, { t: 'narra', texto: h.nome + ' toca um acorde para ' + alvo.nome + '. Coragem!' }); break;
+      case 'zombaria':
+        var sz = d(e, 20) + 1;
+        if (sz >= hb.salva.cd) ev(e, { t: 'narra', texto: alvo.nome + ' ignora a provocação.' });
+        else { alvo.efeitos.zombado = 1; aplicarDano(e, alvo, rolar(e, hb.dano).total, 'psiquico', h.id); }
+        break;
+      case 'cancao':
+        herois(e).filter(function (o) { return dist(o, h) <= 4; }).forEach(function (o) { curar(e, o, rolar(e, hb.cura).total, h.id); o.efeitos.inspirado = 1; });
+        break;
+      case 'impor': curar(e, alvo, rolar(e, hb.cura).total, h.id); break;
+      case 'divino': h.efeitos.divino = 1; ev(e, { t: 'narra', texto: 'A espada de ' + h.nome + ' brilha com luz dourada.' }); break;
+      case 'aura':
+        heroisDePe(e).filter(function (o) { return dist(o, h) <= 2; }).forEach(function (o) { o.efeitos.aura = hb.dur + 1; });
+        ev(e, { t: 'narra', texto: 'Uma aura dourada envolve os aliados ao redor de ' + h.nome + '.' });
+        break;
       case 'surto': e.combate.acao += 1; ev(e, { t: 'narra', texto: h.nome + ' respira fundo e ganha uma ação extra!' }); break;
       case 'giro':
         inimigosAtivos(e).filter(function (m) { return hostil(m) && dist(m, h) === 1; }).forEach(function (m) { if (ativa(m)) atacar(e, h, m, R.ataquesDe(h)[0]); });
