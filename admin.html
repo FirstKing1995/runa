@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>RUNA — Painel do administrador</title>
+  <link rel="icon" href="assets/icone.svg" type="image/svg+xml">
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;700&family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/runa.css">
+  <style>
+    main { width: min(1000px, 100%); margin: 0 auto; padding: 24px 16px 60px; }
+    .resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 16px 0; }
+    .resumo div { padding: 14px; }
+    .resumo b { display: block; font-family: var(--titulo); font-size: 1.6rem; color: var(--ouro-vivo); }
+    .resumo span { color: var(--texto2); font-size: 0.85rem; }
+    .mesa { padding: 14px 16px; margin-bottom: 10px; }
+    .mesa header { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+    .mesa header b { font-family: var(--titulo); font-size: 1.2rem; letter-spacing: 0.15em; color: var(--ouro-vivo); }
+    .mesa header span { color: var(--texto2); font-size: 0.88rem; }
+    .mesa .acoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .mesa .detalhe { margin-top: 10px; font-size: 0.88rem; color: var(--texto2); }
+    .msg { color: var(--texto2); min-height: 1.4em; }
+    .msg.erro { color: #ff9a8a; }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="marca" href="index.html" style="font-size:1.4rem;text-decoration:none">RUNA</a>
+    <h1 style="font-size:1.6rem;margin-top:12px">Painel do administrador</h1>
+    <p class="msg" id="modo"></p>
+    <form class="painel ornato" id="f-login" style="padding:18px;max-width:420px">
+      <div class="campo"><label for="senha">Senha do painel</label><input id="senha" type="password" autocomplete="current-password" required></div>
+      <button class="btn ouro">Entrar</button>
+      <p class="msg" id="login-msg"></p>
+    </form>
+    <section id="painel" hidden>
+      <div class="resumo" id="resumo"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn pequeno" id="bt-atualizar">Atualizar lista</button><a class="btn pequeno fantasma" href="imprimir.html">Tabuleiro para imprimir</a></div>
+      <div id="lista"></div>
+    </section>
+  </main>
+  <script src="js/config.js"></script>
+  <script src="js/campanha.js"></script>
+  <script src="js/regras.js"></script>
+  <script type="module">
+    import * as Rede from './js/rede.js';
+    const R = window.RUNA;
+    const $ = (s) => document.querySelector(s);
+    const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const API = (window.RUNA_CONFIG.API_URL || '').trim();
+    let senha = '';
+    $('#modo').textContent = API ? 'Conectado ao servidor do Google Apps Script.' : 'Modo local: mostra as mesas guardadas neste navegador. Senha de teste: runa';
+
+    async function chamar(p) {
+      if (!API) return local(p);
+      const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ a: 'admin', senha }, p)) });
+      return r.json();
+    }
+    function local(p) {
+      if (senha !== 'runa') return { ok: false, erro: 'Senha incorreta.' };
+      if (p.op === 'listar') return { ok: true, mesas: Rede.mesasLocais().map((e) => ({ sala: e.sala, versao: e.versao, fase: e.fase, cena: (R.CENAS[e.cenaIdx] || {}).titulo || '', jogadores: Object.values(e.jogadores).map((j) => j.nome).join(', '), atualizado: e.atualizado || e.criado })) };
+      if (p.op === 'apagar') { Rede.apagarLocal(p.sala); return { ok: true }; }
+      const e = JSON.parse(localStorage.getItem('runa_mesa_' + p.sala));
+      if (p.op === 'ver') return { ok: true, estado: e };
+      const r = R.aplicar(e, Object.assign({ admin: true, jogador: e.host }, p.cmd));
+      if (r.ok) localStorage.setItem('runa_mesa_' + p.sala, JSON.stringify(e));
+      return Object.assign(r, { estado: e });
+    }
+
+    async function listar() {
+      const r = await chamar({ op: 'listar' });
+      if (!r.ok) { $('#login-msg').className = 'msg erro'; $('#login-msg').textContent = r.erro; return false; }
+      const ms = r.mesas;
+      const jogando = ms.filter((m) => m.fase === 'jogo').length, fim = ms.filter((m) => m.fase === 'fim').length;
+      $('#resumo').innerHTML = `<div class="painel"><b>${ms.length}</b><span>mesas criadas</span></div><div class="painel"><b>${jogando}</b><span>em andamento</span></div><div class="painel"><b>${fim}</b><span>campanhas concluídas</span></div>`;
+      $('#lista').innerHTML = ms.map((m) => `<article class="mesa painel" data-sala="${esc(m.sala)}">
+        <header><b>${esc(m.sala)}</b><span>${esc(m.fase === 'lobby' ? 'escolhendo heróis' : m.fase === 'fim' ? 'concluída' : m.cena)}</span><span>${esc(m.jogadores)}</span><span>${m.atualizado ? new Date(m.atualizado).toLocaleString('pt-BR') : ''}</span></header>
+        <div class="acoes">
+          <a class="btn pequeno" href="jogo.html?sala=${esc(m.sala)}" target="_blank">Abrir</a>
+          <button class="btn pequeno" data-op="ver">Detalhes</button>
+          <button class="btn pequeno" data-op="narrar">Narrar</button>
+          <button class="btn pequeno" data-op="pularVez">Pular vez</button>
+          <button class="btn pequeno" data-op="curar">Curar grupo</button>
+          <button class="btn pequeno" data-op="reiniciar">Reiniciar cena</button>
+          <select data-cena class="btn pequeno fantasma">${R.CENAS.map((c, i) => `<option value="${i}">${i + 1}. ${esc(c.titulo)}</option>`).join('')}</select>
+          <button class="btn pequeno" data-op="cena">Ir para cena</button>
+          <button class="btn pequeno perigo" data-op="apagar">Apagar</button>
+        </div><div class="detalhe" hidden></div></article>`).join('') || '<p class="msg">Nenhuma mesa ainda.</p>';
+      document.querySelectorAll('.mesa').forEach((el) => el.querySelectorAll('[data-op]').forEach((b) => b.onclick = () => acao(el, el.dataset.sala, b.dataset.op)));
+      return true;
+    }
+    async function acao(el, sala, op) {
+      let r;
+      if (op === 'ver') {
+        r = await chamar({ op: 'ver', sala });
+        const e = r.estado, d = el.querySelector('.detalhe');
+        d.hidden = false;
+        d.innerHTML = e ? `Heróis: ${R.herois(e).map((h) => `${esc(h.nome)} (${esc(R.CLASSES[h.classe].nome)}, ${h.pv}/${h.pvMax} PV)`).join(' · ') || 'nenhum'}<br>Nível ${e.nivel} · ${e.xp} XP · ${e.ouro} moedas · ${e.combate ? 'em combate, rodada ' + e.combate.rodada : 'explorando'}<br>Objetivo: ${esc(e.objetivo)}<br>Escolhas: ${Object.keys(e.flags).map(esc).join(', ') || 'nenhuma'}` : 'Mesa não encontrada.';
+        return;
+      }
+      if (op === 'apagar') { if (!confirm('Apagar a mesa ' + sala + ' para sempre?')) return; r = await chamar({ op: 'apagar', sala }); }
+      else {
+        const cmd = { t: 'mestre', op };
+        if (op === 'narrar') { cmd.texto = prompt('Texto para narrar a todos da mesa ' + sala + ':'); if (!cmd.texto) return; }
+        if (op === 'cena') { cmd.idx = +el.querySelector('[data-cena]').value; if (!confirm('Levar a mesa ' + sala + ' para outra cena?')) return; }
+        if (op === 'reiniciar' && !confirm('Reiniciar a cena atual da mesa ' + sala + '?')) return;
+        r = await chamar({ op: 'cmd', sala, cmd });
+      }
+      alert(r.ok ? 'Feito.' : r.erro);
+      listar();
+    }
+    $('#f-login').onsubmit = async (ev) => {
+      ev.preventDefault();
+      senha = $('#senha').value;
+      $('#login-msg').className = 'msg'; $('#login-msg').textContent = 'Conferindo...';
+      if (await listar()) { $('#f-login').hidden = true; $('#painel').hidden = false; }
+    };
+    $('#bt-atualizar').onclick = listar;
+  </script>
+</body>
+</html>

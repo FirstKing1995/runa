@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RUNA — Tabuleiro para imprimir</title>
+  <link rel="icon" href="assets/icone.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;700&family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/runa.css">
+  <style>
+    .topo { width: min(900px, 100%); margin: 0 auto; padding: 24px 16px; }
+    .topo ol { color: var(--texto2); padding-left: 20px; }
+    .topo li { margin-bottom: 6px; }
+    .opcoes { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
+    .opcoes label { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border: 1px solid var(--borda); border-radius: 8px; cursor: pointer; background: #1a140e; }
+    .opcoes input { accent-color: var(--ouro); }
+    #folhas { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 0 16px 48px; }
+    .folha { background: #fff; color: #111; position: relative; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); flex: none; font-family: 'Cinzel', Georgia, serif; overflow: hidden; }
+    .folha.a4-retrato { width: 210mm; height: 297mm; }
+    .folha.a4-paisagem { width: 297mm; height: 210mm; }
+    .grade { position: absolute; display: grid; border: 0.4mm solid #222; }
+    .casa { position: relative; border: 0.2mm solid #999; display: grid; place-items: center; }
+    .casa svg { display: block; }
+    .casa .rot { position: absolute; left: 1.2mm; top: 0.8mm; font-size: 2.6mm; color: #555; font-weight: 700; }
+    .casa .rune { position: absolute; right: 1mm; bottom: 0.6mm; font-size: 2.4mm; color: #bbb; }
+    .cabeca { position: absolute; left: 0; right: 0; text-align: center; font-size: 4mm; letter-spacing: 1.5mm; color: #333; }
+    .pe { position: absolute; left: 12mm; right: 12mm; font-family: 'Alegreya Sans', sans-serif; font-size: 2.8mm; color: #555; display: flex; justify-content: space-between; gap: 4mm; }
+    .corte { position: absolute; top: 0; bottom: 0; border-left: 0.3mm dashed #999; }
+    .corte span { position: absolute; top: 4mm; left: 1mm; font-family: 'Alegreya Sans'; font-size: 2.6mm; color: #777; white-space: nowrap; }
+    .regua { position: absolute; height: 3mm; border: 0.25mm solid #444; border-top: 0; font-family: 'Alegreya Sans'; font-size: 2.4mm; color: #444; }
+    .regua::before { content: '10 cm — confira com uma régua: precisa medir exatamente isso'; position: absolute; top: 3.5mm; left: 0; white-space: nowrap; }
+    @media screen and (max-width: 860px) { .folha { zoom: 0.42; } }
+    @media print {
+      @page { size: A4; margin: 0; }
+      body { background: #fff; }
+      .topo, .faixa-topo { display: none !important; }
+      #folhas { padding: 0; gap: 0; display: block; }
+      .folha { box-shadow: none; page-break-after: always; break-after: page; zoom: 1 !important; }
+      .folha.a4-paisagem { width: 297mm; height: 210mm; }
+    }
+    body.paisagem-print { }
+  </style>
+  <style id="estilo-pagina"></style>
+</head>
+<body>
+  <div class="topo">
+    <a class="marca" href="index.html" style="font-size:1.4rem;text-decoration:none">RUNA</a>
+    <h1 style="font-size:1.6rem;margin-top:14px">Tabuleiro para imprimir</h1>
+    <p style="color:var(--texto2)">Cada casa tem um código que o celular reconhece. O mesmo tabuleiro serve para todas as cenas da campanha: o que muda é o mundo que aparece na tela.</p>
+    <div class="opcoes">
+      <label><input type="radio" name="fmt" value="duas" checked> Duas folhas A4 (recomendado, casas de 4,5 cm)</label>
+      <label><input type="radio" name="fmt" value="uma"> Uma folha A4 deitada (casas de 3,3 cm)</label>
+    </div>
+    <ol>
+      <li>Imprima em <b>tamanho real (100%)</b>, sem "ajustar à página". Preto e branco serve.</li>
+      <li>Confira a régua de 10 cm na primeira folha.</li>
+      <li id="passo-juntar">Corte a folha 1 na linha tracejada e encoste a borda cortada na grade da folha 2, alinhando as linhas. Prenda com fita por baixo.</li>
+      <li>Coloque sobre a mesa com boa luz, sem reflexo. Papel mais grosso (ou colado num papelão) fica mais reto e funciona melhor.</li>
+    </ol>
+    <button class="btn ouro" onclick="print()"><i data-lucide="printer"></i> Imprimir</button>
+  </div>
+  <div id="folhas"></div>
+
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <script src="vendor/cv.js"></script>
+  <script src="vendor/aruco.js"></script>
+  <script src="vendor/aruco_4x4_1000.js"></script>
+  <script src="js/dicionario.js"></script>
+  <script>
+    definirDicionarioRuna(AR);
+    const dic = new AR.Dictionary('RUNA48');
+    const RUNAS = 'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟ';
+    const MARCA = 0.6;
+    function marcador(id, lado) {
+      const bits = dic.codeList[id];
+      let r = '';
+      for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) if (bits[y * 4 + x] === '1') r += `<rect x="${x + 1}" y="${y + 1}" width="1.02" height="1.02" fill="#fff"/>`;
+      return `<svg viewBox="0 0 6 6" width="${lado}mm" height="${lado}mm" shape-rendering="crispEdges"><rect width="6" height="6" fill="#000"/>${r}</svg>`;
+    }
+    function grade(cols, linhas, casa, x0, y0, col0) {
+      let h = `<div class="grade" style="left:${x0}mm;top:${y0}mm;grid-template-columns:repeat(${cols},${casa}mm);grid-template-rows:repeat(${linhas},${casa}mm)">`;
+      for (let y = 0; y < linhas; y++) for (let x = 0; x < cols; x++) {
+        const cx = col0 + x, id = y * 8 + cx;
+        h += `<div class="casa"><span class="rot">${'ABCDEFGH'[cx]}${y + 1}</span>${marcador(id, casa * MARCA)}<span class="rune">${RUNAS[id % RUNAS.length]}</span></div>`;
+      }
+      return h + '</div>';
+    }
+    function montar(fmt) {
+      const f = document.getElementById('folhas');
+      document.getElementById('passo-juntar').hidden = fmt !== 'duas';
+      document.getElementById('estilo-pagina').textContent = fmt === 'uma' ? '@media print { @page { size: A4 landscape; margin: 0; } }' : '';
+      if (fmt === 'duas') {
+        const casa = 45, x0 = 15, y0 = 16;
+        f.innerHTML = [0, 4].map((c0, i) => `<div class="folha a4-retrato">
+          <div class="cabeca" style="top:6mm">RUNA · FOLHA ${i + 1} DE 2 · COLUNAS ${c0 ? 'E–H' : 'A–D'}</div>
+          ${grade(4, 6, casa, x0, y0, c0)}
+          ${i === 0 ? `<div class="corte" style="left:${x0 + 4 * casa}mm"><span>cortar aqui</span></div><div class="regua" style="left:${x0}mm;top:${y0 + 6 * casa + 3}mm;width:100mm"></div>` : `<div class="pe" style="top:${y0 + 6 * casa + 3}mm"><span>Encoste a folha 1 aqui à esquerda, alinhando as linhas.</span><span>A Noite do Sino Morto</span></div>`}
+        </div>`).join('');
+      } else {
+        const casa = 33, x0 = (297 - 8 * casa) / 2, y0 = 6;
+        f.innerHTML = `<div class="folha a4-paisagem">${grade(8, 6, casa, x0, y0, 0)}
+          <div class="pe" style="top:${y0 + 6 * casa + 1.5}mm"><span>RUNA · tabuleiro compacto</span><span>Imprima em 100%, sem ajustar à página</span></div></div>`;
+      }
+    }
+    document.querySelectorAll('[name=fmt]').forEach((r) => r.onchange = () => montar(r.value));
+    montar('duas');
+    lucide.createIcons();
+  </script>
+</body>
+</html>

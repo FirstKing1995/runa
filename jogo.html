@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0d0b09">
+  <title>RUNA — Mesa</title>
+  <link rel="icon" href="assets/icone.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Cinzel:wght@600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/runa.css">
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    } }
+  </script>
+</head>
+<body class="jogo">
+  <video id="video" playsinline muted></video>
+  <canvas id="cena3d"></canvas>
+  <div id="mira"></div>
+  <div id="baloes"></div>
+
+  <header id="topo">
+    <div class="barra-topo">
+      <button class="btn btn-icone fantasma" id="bt-menu" aria-label="Menu"><i data-lucide="menu"></i></button>
+      <div class="titulo-cena"><b id="cena-titulo">RUNA</b><span id="cena-sub"></span></div>
+      <button class="btn btn-icone fantasma" id="bt-cronica" aria-label="Crônica"><i data-lucide="scroll-text"></i></button>
+      <button class="btn btn-icone fantasma" id="bt-modo" aria-label="Realidade aumentada"><i data-lucide="scan-line"></i></button>
+    </div>
+    <div id="objetivo" class="painel" hidden><i data-lucide="flag"></i><span></span></div>
+    <div id="ordem"></div>
+  </header>
+
+  <div id="status-ar" class="painel">Aponte a câmera para o tabuleiro impresso</div>
+  <div id="legenda"></div>
+
+  <section id="hud" hidden>
+    <div id="ficha" class="painel ornato"></div>
+    <div id="acoes"></div>
+  </section>
+
+  <div id="alvo-aviso" class="painel" hidden><span></span><button class="btn pequeno fantasma" id="bt-cancela-alvo">Cancelar</button></div>
+  <section id="dialogo" class="painel ornato" hidden></section>
+  <section id="folha" class="painel ornato" hidden></section>
+  <div id="dado" class="painel ornato" hidden></div>
+  <div id="faixa"><h2></h2><p></p></div>
+  <div id="toast"></div>
+
+  <aside id="cronica" class="painel" hidden>
+    <div class="cab-lateral"><h3>Crônica</h3><button class="btn btn-icone fantasma" id="bt-fecha-cronica" aria-label="Fechar"><i data-lucide="x"></i></button></div>
+    <div class="log" id="log"></div>
+  </aside>
+
+  <section id="carregando" class="tela">
+    <div>
+      <div class="marca" style="font-size:2.6rem">RUNA</div>
+      <p id="carga-txt" style="color:var(--texto2)">Acendendo as tochas...</p>
+      <div class="barra-carga"><i id="carga-barra"></i></div>
+    </div>
+  </section>
+
+  <section id="lobby" class="tela" hidden><div class="miolo" id="lobby-miolo"></div></section>
+  <section id="menu" class="tela" hidden><div class="miolo" id="menu-miolo"></div></section>
+  <section id="final" class="tela" hidden><div class="miolo" id="final-miolo"></div></section>
+
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/campanha.js"></script>
+  <script src="js/regras.js"></script>
+  <script type="module" src="js/jogo.js"></script>
+</body>
+</html>

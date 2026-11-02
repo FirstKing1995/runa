@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0b09">
+  <title>RUNA — RPG de mesa em realidade aumentada</title>
+  <meta name="description" content="Imprima o tabuleiro, aponte o celular e veja heróis, monstros e magias ganharem vida sobre a mesa. Um RPG estilo D&D para jogar em grupo, cada um no seu celular.">
+  <link rel="icon" href="assets/icone.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Cinzel:wght@600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/runa.css">
+  <style>
+    body { background: var(--fundo); overflow-x: hidden; }
+    .faixa-topo { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px max(16px, calc((100vw - 1100px) / 2)); background: rgba(13, 11, 9, 0.85); backdrop-filter: blur(8px); border-bottom: 1px solid rgba(91, 70, 48, 0.5); }
+    .faixa-topo .marca { font-size: 1.35rem; text-decoration: none; }
+    .faixa-topo nav { display: flex; gap: 8px; }
+    .bloco { width: min(1100px, 100%); margin: 0 auto; padding: 72px 16px; }
+    .heroi { position: relative; min-height: 92vh; display: grid; align-items: center; overflow: hidden; }
+    .heroi::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 70% 60% at 70% 40%, rgba(224, 112, 58, 0.22), transparent 60%), radial-gradient(ellipse 50% 50% at 20% 80%, rgba(143, 184, 255, 0.10), transparent 60%); }
+    .heroi .bloco { position: relative; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; padding-top: 40px; }
+    .heroi h1 { font-size: clamp(2.2rem, 6.4vw, 4.2rem); line-height: 1.04; margin-bottom: 18px; }
+    .heroi h1 em { font-style: normal; color: var(--brasa); }
+    .lead { font-size: 1.18rem; color: var(--texto2); max-width: 560px; }
+    .ctas { display: flex; gap: 12px; flex-wrap: wrap; margin: 26px 0 14px; }
+    .ctas .btn { min-height: 54px; padding: 0 26px; font-size: 1rem; }
+    .selo { font-size: 0.88rem; color: var(--texto3); display: flex; gap: 16px; flex-wrap: wrap; }
+    .selo span { display: inline-flex; gap: 6px; align-items: center; }
+    .ilustra { position: relative; aspect-ratio: 1 / 1.05; }
+    .papel { position: absolute; inset: 18% 6% 8% 6%; transform: perspective(900px) rotateX(58deg) rotateZ(-14deg); background: #efe6d2; border-radius: 4px; box-shadow: 0 40px 60px rgba(0, 0, 0, 0.6); display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; padding: 10px; }
+    .papel i { background: #fff; border: 1px solid #c8bca4; position: relative; }
+    .papel i::after { content: ''; position: absolute; inset: 22%; background: #111; box-shadow: inset 0 0 0 3px #111, inset 4px 4px 0 6px #fff; }
+    .papel i:nth-child(3n)::after { box-shadow: inset 0 0 0 3px #111, inset -4px 3px 0 5px #fff; }
+    .papel i:nth-child(5n)::after { box-shadow: inset 0 0 0 3px #111, inset 3px -4px 0 5px #fff; }
+    .holo { position: absolute; inset: 0; display: grid; place-items: center; }
+    .celular { position: absolute; right: 2%; top: 0; width: 46%; aspect-ratio: 9 / 18.5; border-radius: 28px; border: 6px solid #241a11; background: linear-gradient(180deg, #1b2434, #0e1018); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px #5b4630; overflow: hidden; transform: rotate(6deg); }
+    .celular .tela-cel { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, rgba(224, 112, 58, 0.35), transparent 60%); }
+    .celular .chama { position: absolute; left: 50%; top: 52%; width: 34%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, #ffd27a 0%, #ff7a2a 35%, rgba(200, 40, 20, 0) 70%); filter: blur(2px); animation: chama 1.6s ease-in-out infinite; }
+    @keyframes chama { 50% { transform: translate(-50%, -54%) scale(1.12); } }
+    .celular .icones { position: absolute; inset: auto 10% 12% 10%; display: flex; justify-content: space-around; color: var(--ouro-vivo); font-size: 1.4rem; }
+    .celular .placa { position: absolute; left: 8%; right: 8%; top: 9%; padding: 8px 10px; border-radius: 10px; background: rgba(20, 15, 10, 0.85); border: 1px solid #8a6c44; font-size: 0.7rem; color: #efe6d6; font-style: italic; }
+    .passos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: p; }
+    .passo { padding: 22px; }
+    .passo .num { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: #2a1e12; border: 1px solid var(--ouro); color: var(--ouro-vivo); font-size: 1.3rem; margin-bottom: 12px; }
+    .passo p { color: var(--texto2); margin: 0; }
+    .sec-titulo { text-align: center; max-width: 720px; margin: 0 auto 36px; }
+    .sec-titulo h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); }
+    .sec-titulo p { color: var(--texto2); font-size: 1.08rem; }
+    .cenas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .cena { padding: 18px; display: flex; gap: 14px; }
+    .cena .n { flex: none; font-family: var(--titulo); font-size: 1.8rem; color: var(--borda-clara); line-height: 1; }
+    .cena h3 { font-size: 1rem; margin-bottom: 4px; }
+    .cena p { margin: 0; font-size: 0.9rem; color: var(--texto2); }
+    .herois { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .herois .card-heroi { text-align: center; align-items: center; }
+    .herois .retrato { width: 64px; height: 64px; font-size: 1.8rem; }
+    .dois { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .lista { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+    .lista li { display: flex; gap: 12px; align-items: flex-start; }
+    .lista li svg { color: var(--ouro); flex: none; margin-top: 3px; width: 22px; height: 22px; }
+    .lista b { color: var(--texto); }
+    .lista span { color: var(--texto2); }
+    #entrar { scroll-margin-top: 70px; }
+    .formularios { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .formularios .painel { padding: 24px; }
+    .rodape { border-top: 1px solid rgba(91, 70, 48, 0.5); color: var(--texto3); font-size: 0.85rem; }
+    .rodape .bloco { padding: 32px 16px 48px; }
+    .rodape a { color: var(--texto2); }
+    .msg { min-height: 1.4em; font-size: 0.9rem; color: var(--texto2); margin: 6px 0 0; }
+    .msg.erro { color: #ff9a8a; }
+    .mesas-salvas a { display: inline-flex; margin: 4px 6px 0 0; }
+    @media (max-width: 900px) {
+      .heroi .bloco { grid-template-columns: 1fr; }
+      .ilustra { max-width: 420px; margin: 0 auto; width: 100%; }
+      .passos, .cenas, .dois, .formularios { grid-template-columns: 1fr; }
+      .herois { grid-template-columns: repeat(2, 1fr); }
+      .bloco { padding: 56px 16px; }
+      .faixa-topo nav .btn.fantasma { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="faixa-topo">
+    <a class="marca" href="#">RUNA</a>
+    <nav><a class="btn fantasma pequeno" href="imprimir.html"><i data-lucide="printer"></i> Tabuleiro</a><a class="btn ouro pequeno" href="#entrar">Jogar grátis</a></nav>
+  </header>
+
+  <section class="heroi">
+    <div class="bloco">
+      <div>
+        <p style="font-family:var(--titulo);color:var(--ouro);letter-spacing:.2em;font-size:.85rem;margin:0 0 10px">RPG DE MESA EM REALIDADE AUMENTADA</p>
+        <h1>Seu tabuleiro de papel vira um <em>mundo vivo</em>.</h1>
+        <p class="lead">Imprima duas folhas, aponte o celular e veja heróis, monstros e magias andando sobre a mesa. Cada amigo joga no próprio celular, todos na mesma campanha, com regras de d20 no estilo Dungeons &amp; Dragons.</p>
+        <div class="ctas"><a class="btn ouro" href="#entrar"><i data-lucide="swords"></i> Criar uma mesa grátis</a><a class="btn" href="#como"><i data-lucide="play"></i> Como funciona</a></div>
+        <div class="selo"><span><i data-lucide="users"></i> 2 a 5 jogadores</span><span><i data-lucide="hourglass"></i> cerca de 2 horas</span><span><i data-lucide="smartphone"></i> sem instalar nada</span></div>
+      </div>
+      <div class="ilustra" aria-hidden="true">
+        <div class="papel"></div>
+        <div class="celular"><div class="tela-cel"></div><div class="chama"></div><div class="placa">"DONG. O sino da torre velha ecoa pela vila..."</div><div class="icones"><i data-lucide="sword"></i><i data-lucide="sparkles"></i><i data-lucide="shield"></i></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloco" id="como">
+    <div class="sec-titulo"><h2>Três passos até a primeira rolagem</h2><p>O material impresso é simples. A mágica acontece na tela.</p></div>
+    <div class="passos">
+      <div class="passo painel ornato"><div class="num"><i data-lucide="printer"></i></div><h3>Imprima o tabuleiro</h3><p>Duas folhas A4 com 48 casas codificadas. Cada casa tem um código que o celular reconhece, então qualquer pedaço visível já basta para o mundo aparecer.</p></div>
+      <div class="passo painel ornato"><div class="num"><i data-lucide="qr-code"></i></div><h3>Monte a mesa</h3><p>Quem cria a mesa recebe um código e um QR. Os amigos escaneiam, cada um escolhe seu herói e ninguém precisa baixar aplicativo.</p></div>
+      <div class="passo painel ornato"><div class="num"><i data-lucide="scan-line"></i></div><h3>Aponte e jogue</h3><p>A câmera mostra o vilarejo, a floresta e a cripta em 3D sobre o papel. Toque nas casas para andar, atacar, conversar e lançar magias.</p></div>
+    </div>
+  </section>
+
+  <section class="bloco">
+    <div class="sec-titulo"><h2>Capítulo I: A Noite do Sino Morto</h2><p>Há três noites o sino da torre velha de Pedrafria toca sozinho. A cada badalada, alguém some na névoa. A neta da anciã é a próxima.</p></div>
+    <div class="cenas">
+      <div class="cena painel"><div class="n">I</div><div><h3>O Javali Manco</h3><p>Uma taverna na nevasca, uma anciã desesperada e algo arranhando o alçapão do porão.</p></div></div>
+      <div class="cena painel"><div class="n">II</div><div><h3>Floresta de Breu</h3><p>Uma carroça tombada, um mercador morrendo e olhos amarelos entre os pinheiros.</p></div></div>
+      <div class="cena painel"><div class="n">III</div><div><h3>O Acampamento de Garra</h3><p>Convença, intimide, pague ou lute. Os bandidos têm a chave da cripta.</p></div></div>
+      <div class="cena painel"><div class="n">IV</div><div><h3>A Cabana de Mãe Lodo</h3><p>A bruxa do pântano sabe o segredo do sino. O preço pode ser uma lembrança sua.</p></div></div>
+      <div class="cena painel"><div class="n">V</div><div><h3>A Cripta do Rei Corvo</h3><p>Armadilhas, alavancas e um guardião que não aceita visitas.</p></div></div>
+      <div class="cena painel"><div class="n">VI</div><div><h3>O Salão do Sino</h3><p>Meia-noite. Vorag, o Sineiro, e a última badalada. As escolhas da viagem mudam o final.</p></div></div>
+    </div>
+  </section>
+
+  <section class="bloco">
+    <div class="sec-titulo"><h2>Escolha seu herói</h2><p>Cinco classes com habilidades próprias, que sobem de nível ao longo da campanha.</p></div>
+    <div class="herois" id="herois"></div>
+  </section>
+
+  <section class="bloco">
+    <div class="dois">
+      <div class="painel ornato" style="padding:26px">
+        <h2 style="font-size:1.5rem">Regras de verdade, sem livro de 300 páginas</h2>
+        <ul class="lista">
+          <li><i data-lucide="dice-5"></i><div><b>d20 em tudo.</b> <span>Ataques contra a Classe de Armadura, testes de perícia contra a dificuldade, vantagem, desvantagem e crítico no 20.</span></div></li>
+          <li><i data-lucide="list-ordered"></i><div><b>Iniciativa e turnos.</b> <span>Movimento, ação e ação bônus. O celular mostra o alcance e a chance de acerto antes de você decidir.</span></div></li>
+          <li><i data-lucide="messages-square"></i><div><b>Diálogos com escolhas.</b> <span>Persuasão, Intimidação, Intuição. Os personagens falam, e o que vocês escolhem muda o rumo e o final.</span></div></li>
+          <li><i data-lucide="skull"></i><div><b>O jogo é o mestre.</b> <span>Os monstros pensam sozinhos e a narração é automática. Quem quiser pode narrar por cima pelas ferramentas do mestre.</span></div></li>
+        </ul>
+      </div>
+      <div class="painel ornato" style="padding:26px">
+        <h2 style="font-size:1.5rem">O que vocês precisam</h2>
+        <ul class="lista">
+          <li><i data-lucide="file"></i><div><b>Duas folhas A4.</b> <span>Impressão comum, preto e branco, em tamanho real.</span></div></li>
+          <li><i data-lucide="smartphone"></i><div><b>Um celular por jogador.</b> <span>Android ou iPhone com câmera e navegador atualizado.</span></div></li>
+          <li><i data-lucide="lamp"></i><div><b>Uma mesa com boa luz.</b> <span>Sem reflexo forte em cima do papel.</span></div></li>
+          <li><i data-lucide="monitor"></i><div><b>Sem câmera?</b> <span>Dá para jogar no modo Mesa 3D, girando o tabuleiro com o dedo.</span></div></li>
+        </ul>
+        <a class="btn" href="imprimir.html" style="margin-top:18px"><i data-lucide="printer"></i> Abrir o tabuleiro para imprimir</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloco" id="entrar">
+    <div class="sec-titulo"><h2>Sente-se à mesa</h2><p>O Capítulo I é gratuito. Crie a mesa no seu celular e chame o grupo.</p></div>
+    <div class="formularios">
+      <form class="painel ornato" id="f-criar">
+        <h3><i data-lucide="crown"></i> Criar uma mesa</h3>
+        <p style="color:var(--texto2);margin-top:0">Você será o anfitrião: começa a campanha e tem as ferramentas do mestre.</p>
+        <div class="campo"><label for="c-nome">Seu nome</label><input id="c-nome" maxlength="24" required autocomplete="nickname" placeholder="Como o grupo te chama"></div>
+        <button class="btn ouro" style="width:100%">Criar mesa e chamar o grupo</button>
+        <p class="msg" id="c-msg"></p>
+        <div class="mesas-salvas" id="mesas-salvas"></div>
+      </form>
+      <form class="painel ornato" id="f-entrar">
+        <h3><i data-lucide="log-in"></i> Entrar com código</h3>
+        <p style="color:var(--texto2);margin-top:0">Peça o código de 5 letras para quem criou a mesa, ou escaneie o QR dela.</p>
+        <div class="campo"><label for="e-cod">Código da mesa</label><input id="e-cod" maxlength="5" required placeholder="Ex.: K7RQX" style="text-transform:uppercase;letter-spacing:.3em;font-family:var(--titulo)"></div>
+        <div class="campo"><label for="e-nome">Seu nome</label><input id="e-nome" maxlength="24" required autocomplete="nickname"></div>
+        <button class="btn" style="width:100%">Entrar na mesa</button>
+        <p class="msg" id="e-msg"></p>
+      </form>
+    </div>
+  </section>
+
+  <section class="bloco" id="capitulo2" style="padding-top:20px">
+    <form class="painel ornato" id="f-aviso" style="padding:26px;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:end">
+      <div><h3 style="margin-bottom:4px">O Rei Corvo não estava inteiro naquele sino.</h3><p style="color:var(--texto2);margin:0 0 10px">O Capítulo II está sendo escrito. Deixe seu e-mail e avisamos quando sair.</p>
+        <div class="campo" style="margin:0"><label for="a-email">E-mail</label><input id="a-email" type="email" required autocomplete="email" placeholder="voce@email.com"></div></div>
+      <button class="btn ouro"><i data-lucide="bell"></i> Avise-me</button>
+      <p class="msg" id="a-msg" style="grid-column:1/-1;margin:0"></p>
+    </form>
+  </section>
+
+  <footer class="rodape">
+    <div class="bloco">
+      <p><b class="marca" style="font-size:1rem">RUNA</b> · campanha original "A Noite do Sino Morto". Regras inspiradas no sistema d20.</p>
+      <p>Modelos 3D: <a href="https://kaylousberg.com" target="_blank" rel="noopener">KayKit, de Kay Lousberg</a> (CC0) e Fox do repositório glTF da Khronos (CC BY 4.0, tomkranis, AsoboStudio e scurest). Reconhecimento de marcadores: <a href="https://github.com/damianofalcioni/js-aruco2" target="_blank" rel="noopener">js-aruco2</a>. 3D: <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a>. Ícones: <a href="https://lucide.dev" target="_blank" rel="noopener">Lucide</a>.</p>
+      <p><a href="admin.html">Painel do administrador</a></p>
+    </div>
+  </footer>
+
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/campanha.js"></script>
+  <script src="js/regras.js"></script>
+  <script type="module">
+    import * as Rede from './js/rede.js';
+    const R = window.RUNA;
+    const $ = (s) => document.querySelector(s);
+    const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const IC = { guerreiro: 'shield', barbara: 'axe', maga: 'wand-sparkles', ladina: 'venetian-mask', cacadora: 'crosshair' };
+    document.querySelector('.papel').innerHTML = '<i></i>'.repeat(48);
+    $('#herois').innerHTML = Object.entries(R.CLASSES).map(([k, c]) => `<article class="card-heroi painel ornato"><div class="retrato"><i data-lucide="${IC[k]}"></i></div><h3>${esc(c.heroi)}</h3><p style="color:var(--ouro)">${esc(c.nome)}</p><p>${esc(c.desc)}</p></article>`).join('');
+    lucide.createIcons();
+    const nome = Rede.meuNome();
+    $('#c-nome').value = nome; $('#e-nome').value = nome;
+    const cod = new URLSearchParams(location.search).get('sala');
+    if (cod) $('#e-cod').value = cod.toUpperCase();
+    const salvas = Rede.remoto ? [] : Rede.mesasLocais().slice(0, 4);
+    if (salvas.length) $('#mesas-salvas').innerHTML = '<small style="color:var(--texto3)">Mesas neste aparelho:</small><br>' + salvas.map((m) => `<a class="btn pequeno fantasma" href="jogo.html?sala=${m.sala}">${m.sala} · ${m.fase === 'lobby' ? 'esperando' : esc((R.CENAS[m.cenaIdx] || {}).titulo || 'fim')}</a>`).join('');
+
+    $('#f-criar').onsubmit = async (ev) => {
+      ev.preventDefault();
+      const n = $('#c-nome').value.trim();
+      if (!n) return;
+      Rede.salvarNome(n);
+      $('#c-msg').className = 'msg'; $('#c-msg').textContent = 'Preparando a mesa...';
+      try { const s = await Rede.criarMesa(n); location.href = 'jogo.html?sala=' + s; }
+      catch (e) { $('#c-msg').className = 'msg erro'; $('#c-msg').textContent = e.message; }
+    };
+    $('#f-entrar').onsubmit = (ev) => {
+      ev.preventDefault();
+      const c = $('#e-cod').value.trim().toUpperCase(), n = $('#e-nome').value.trim();
+      if (!Rede.codigoValido(c)) { $('#e-msg').className = 'msg erro'; $('#e-msg').textContent = 'O código tem 5 letras ou números, por exemplo K7RQX.'; return; }
+      if (n) Rede.salvarNome(n);
+      location.href = 'jogo.html?sala=' + c;
+    };
+    $('#f-aviso').onsubmit = async (ev) => {
+      ev.preventDefault();
+      const email = $('#a-email').value.trim();
+      const api = (window.RUNA_CONFIG.API_URL || '').trim();
+      try {
+        if (api) {
+          const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ a: 'interesse', email }) }).then((r) => r.json());
+          if (!r.ok) throw new Error(r.erro);
+        } else localStorage.setItem('runa_interesse', email);
+        $('#a-msg').className = 'msg'; $('#a-msg').textContent = 'Anotado. Você vai saber primeiro quando o Capítulo II sair.';
+        $('#f-aviso').reset();
+      } catch (e) { $('#a-msg').className = 'msg erro'; $('#a-msg').textContent = 'Não deu para salvar agora. Tente de novo em instantes.'; }
+    };
+  </script>
+</body>
+</html>
