@@ -59,11 +59,12 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
   R.NPCS.mineiro = { nome: 'Sven, mineiro', vis: 'mineiro', pose: 'caido', voz: { tom: 0.8, vel: 1.0 } };
   R.NPCS.troll_npc = { nome: 'Gorm, o Troll da Ponte', vis: 'troll', voz: { tom: 0.4, vel: 0.8 } };
   R.NPCS.olaf = { nome: 'Olaf', vis: 'cultista', voz: { tom: 1.15, vel: 1.05 } };
+  R.NPCS.velho = { nome: 'Ulf, mineiro aposentado', vis: 'velho', voz: { tom: 0.7, vel: 0.85 } };
 
   // ----------------------------------------------------------------- objetos novos
   var O = R.OBJETOS;
   O.vagonete = { nome: 'Vagonete carregado', vis: 'vagonete', bloqueia: true, acao: 'Empurrar o vagonete', teste: { p: 'atletismo', cd: 12 },
-    ok: [{ som: 'pedra' }, { narrar: 'O vagonete dispara pelos trilhos, cheio de minério, e atropela tudo o que está no caminho!' }, { danoArea: [1, 2, 7, 2, '3d8'] }, { remover: ['vagonete'] }],
+    ok: [{ som: 'pedra' }, { narrar: 'O vagonete dispara pelos trilhos, cheio de minério, e atropela tudo o que está no caminho!' }, { danoArea: [1, 3, 20, 3, '3d8'] }, { remover: ['vagonete'] }],
     falha: [{ narrar: 'As rodas estão travadas de ferrugem. O vagonete nem se mexe.' }] };
   O.forja = { nome: 'A Forja Antiga', vis: 'forja', bloqueia: true, acao: 'Acender a forja', req: 'runa_fogo',
     okReq: [{ som: 'magia' }, { narrar: 'A Runa de Fogo brilha e se desfaz em brasas. A forja ruge depois de trezentos anos de silêncio, e o salão inteiro se enche de luz dourada.' }, { tirarItem: 'runa_fogo' }, { flag: 'forja_acesa' }, { xp: 50 }],
@@ -81,6 +82,21 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     falha: [{ narrar: 'Penas, cera e sangue seco. Vocês não entendem o que significa.' }] };
   O.braseiro = { nome: 'Braseiro de Almas', vis: 'braseiro', bloqueia: true, acao: 'Apagar o braseiro', uma: true,
     ok: [{ som: 'agua' }, { narrar: 'Vocês derrubam o braseiro. As chamas verdes gritam e se apagam, e uma alma presa escapa para o alto, livre.' }, { virar: true }, { flagObjeto: true }] };
+  O.pedra_vila = { nome: 'Pedra do fundador', vis: 'runa', bloqueia: true, acao: 'Ler a pedra', uma: true, teste: { p: 'historia', cd: 12 },
+    ok: [{ narrar: '"Ferrofundo, fundada sobre a Galeria Sete, que os anões fecharam e mandaram nunca abrir." Alguém abriu.' }, { xp: 40 }],
+    falha: [{ narrar: 'Fuligem demais em cima das letras.' }] };
+  O.pedra_mina = { nome: 'Marco dos anões', vis: 'runa', bloqueia: true, acao: 'Ler as runas', uma: true, teste: { p: 'historia', cd: 13 },
+    ok: [{ narrar: 'Runas anãs: "Abaixo daqui, o fogo dos antigos. Quem o acender será reconhecido pelos guardiões."' }, { xp: 40 }, { flag: 'sabe_forja' }],
+    falha: [{ narrar: 'Runas anãs. Vocês reconhecem só a palavra fogo.' }] };
+  O.pedra_lago = { nome: 'Pedra das charadas', vis: 'runa', bloqueia: true, acao: 'Ler as marcas', uma: true, teste: { p: 'investigacao', cd: 12 },
+    ok: [{ narrar: 'Riscos de quem tentou responder ao troll antes. Três respostas certas, rabiscadas por alguém que sobreviveu: buraco, rio, fôlego.' }, { xp: 40 }],
+    falha: [{ narrar: 'Riscos sem sentido, e algumas marcas de dentes.' }] };
+  O.pedra_ana = { nome: 'Placa da guilda', vis: 'runa', bloqueia: true, acao: 'Ler a placa', uma: true, teste: { p: 'historia', cd: 12 },
+    ok: [{ narrar: 'Os anões forjaram aqui as correntes que prenderam o Rei Corvo pela primeira vez. Depois, foram embora e levaram o segredo.' }, { xp: 40 }],
+    falha: [{ narrar: 'Uma placa de bronze ilegível de tão gasta.' }] };
+  O.pedra_ninho = { nome: 'Penas pregadas', vis: 'runa', bloqueia: true, acao: 'Examinar', uma: true, teste: { p: 'arcanismo', cd: 12 },
+    ok: [{ narrar: 'Cada pena tem um nome escrito com sangue. São os mineiros que o culto prometeu ao Rei. Os nomes dos que estão nas jaulas ainda brilham.' }, { xp: 40 }],
+    falha: [{ narrar: 'Penas pregadas na pedra. Arrepiante, só isso.' }] };
   O.trono = { nome: 'Trono de Ossos', vis: 'trono', bloqueia: true, acao: 'Examinar', ok: [{ narrar: 'Um trono feito de ossos de corvo e de homem. No encosto, um nome riscado e reescrito cem vezes: Ravenmund.' }] };
 
   // --------------------------------------------------------------------- cenas
@@ -90,35 +106,46 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       id: 'ferrofundo', titulo: 'Ferrofundo', sub: 'A vila mineira, sob a lua cheia de inverno',
       tema: 'vila',
       mapa: [
-        'II.P..FF',
-        'ii....ff',
-        '.M......',
-        '......X.',
-        '.X..C...',
-        '.......S'
+        'II..P...FF....TTT..T',
+        'ii......ff.....T....',
+        '..M.......X.........',
+        '...........C........',
+        '......X.............',
+        '...............M....',
+        'T.....P.......X.....',
+        '....X........II.....',
+        '.............ii.....',
+        '..........X.........',
+        'TT.....T...........S',
+        'TTT..TTTT.....TTTTTT'
       ],
       legenda: {
         I: { b: 1, o: 1, m: 'vila:Fantasy_Inn', s: 2.0, dx: 0.5, dz: 0.5 },
         i: { b: 1, o: 1 },
         F: { b: 1, o: 1, m: 'vila:Blacksmith', s: 2.0, dx: 0.5, dz: 0.5 },
         f: { b: 1, o: 1 },
+        T: { b: 1, o: 1, m: 'nat:Pine_1', s: 1.0, var: ['nat:Pine_1', 'nat:Pine_2', 'nat:Pine_3', 'nat:Pine_4', 'nat:Pine_5'] },
         P: { b: 1, m: 'vila:Well', s: 0.8 },
         M: { b: 1, m: 'vila:Market_Stand', s: 0.95 },
         X: { b: 1, m: 'vila:Crate', s: 0.6, var: ['vila:Crate', 'vila:Barrel', 'vila:Crate_2'] },
         C: { b: 1, m: 'vila:Cart', s: 0.95 }
       },
-      entrada: [[0, 5], [1, 5], [0, 4], [2, 5], [0, 3]],
-      saida: [7, 5],
+      entrada: [[1, 8], [2, 8], [1, 9], [2, 9], [0, 8]],
+      saida: [19, 10],
       unidades: [
-        { id: 'hedda', npc: 'hedda', x: 3, y: 2, dialogo: 'hedda' },
-        { id: 'brokk', npc: 'brokk', x: 5, y: 1, dialogo: 'brokk' },
-        { id: 'ravna', npc: 'ravna', x: 2, y: 3, dialogo: 'ravna2' },
-        { id: 'cult1', m: 'cultista', x: 7, y: 2, oculto: true },
-        { id: 'cult2', m: 'cultista', x: 6, y: 4, oculto: true },
-        { id: 'lider', m: 'cultista_lider', x: 7, y: 3, oculto: true },
-        { id: 'cult3', m: 'cultista_arc', x: 4, y: 0, oculto: true, min: 3 },
-        { id: 'cult4', m: 'cultista', x: 5, y: 5, oculto: true, min: 5 },
-        { id: 'cativo', npc: 'cativo', x: 7, y: 3, dialogo: 'cativo', oculto: true }
+        { id: 'hedda', npc: 'hedda', x: 6, y: 3, dialogo: 'hedda' },
+        { id: 'brokk', npc: 'brokk', x: 10, y: 1, dialogo: 'brokk' },
+        { id: 'ravna', npc: 'ravna', x: 16, y: 5, dialogo: 'ravna2' },
+        { id: 'ulf', npc: 'velho', x: 3, y: 6, dialogo: 'ulf' },
+        { id: 'bau1', obj: 'bau_velho', x: 19, y: 1 },
+        { id: 'pedra1', obj: 'pedra_vila', x: 2, y: 4 },
+        { id: 'cult1', m: 'cultista', x: 17, y: 3, oculto: true },
+        { id: 'cult2', m: 'cultista', x: 15, y: 8, oculto: true },
+        { id: 'lider', m: 'cultista_lider', x: 18, y: 6, oculto: true },
+        { id: 'cult3', m: 'cultista_arc', x: 12, y: 2, oculto: true, min: 3 },
+        { id: 'cult4', m: 'cultista', x: 17, y: 9, oculto: true, min: 5 },
+        { id: 'cult5', m: 'cultista', x: 12, y: 9, oculto: true, min: 7 },
+        { id: 'cativo', npc: 'cativo', x: 18, y: 6, dialogo: 'cativo', oculto: true }
       ],
       objetivo: 'Fale com Hedda, a prefeita, no meio da praça.',
       inicio: [
@@ -129,7 +156,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         { id: 'emboscada', se: { flag: 'aceitou_coroa' }, faz: [
           { som: 'uivo' },
           { narrar: 'Um assobio corta a praça. Das vielas saem figuras de capuz negro, com penas de corvo costuradas nos mantos. Um deles ergue uma foice curta e aponta para vocês.' },
-          { surgir: ['cult1', 'cult2', 'lider', 'cult3', 'cult4'] },
+          { surgir: ['cult1', 'cult2', 'lider', 'cult3', 'cult4', 'cult5'] },
           { falar: ['lider', 'A Irmã avisou que viriam. O Rei quer os matadores do sineiro. Vivos, se der.'] },
           { falar: ['hedda', 'As Penas Negras! Para trás da forja, todo mundo!'] },
           { remover: ['hedda'] },
@@ -149,7 +176,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         { id: 'fim_praca', se: { flag: 'aceitou_coroa', semInimigos: true }, faz: [
           { xp: 150 },
           { narrar: 'A praça fica em silêncio. Portas se abrem, devagar, e rostos assustados espiam pelas frestas. A entrada da mina fica a leste, depois da última casa.' },
-          { objetivo: 'Interrogue o cultista, compre o que precisar com Brokk e siga para a mina (casa H6).' },
+          { objetivo: 'Interrogue o cultista, compre o que precisar com Brokk e siga para a mina, a leste.' },
           { saida: true }
         ] }
       ],
@@ -199,6 +226,14 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
           r3: { fala: 'Não. Eu caço sozinha. Mas tomem: o último frasco de óleo de prata que eu tenho, e duas poções. E um conselho: espectros não sangram, mas a prata dói neles.', faz: [{ item: ['oleo', 1] }, { item: ['pocao', 2] }, { flag: 'ravna_ajudou' }, { xp: 25 }], fim: true },
           r4: { fala: 'Eu já disse. Caço sozinha. Tentem não morrer.', fim: true }
         } },
+        ulf: { inicio: 'f1', nos: {
+          f1: { fala: 'Quarenta anos naquela mina, e nunca vi a Galeria Sete fazer bem a ninguém. Os anões taparam ela por um motivo.', opcoes: [
+            { t: '[Persuasão CD 12] Você conhece a mina melhor que ninguém. Ajude-nos.', teste: { p: 'persuasao', cd: 12, ok: 'f2', falha: 'f3' }, seNao: 'ulf_ok' },
+            { t: 'Obrigado, Ulf.', fim: true }
+          ] },
+          f2: { fala: 'Está bem. Na galeria, os buracos ficam perto dos trilhos e na curva de baixo. E levem isto, sempre carrego uma a mais.', faz: [{ flag: 'atalho' }, { flag: 'ulf_ok' }, { item: ['pocao', 1] }, { xp: 25 }], fim: true },
+          f3: { fala: 'Ajudar? Eu ajudo ficando longe daquele buraco. Boa sorte.', fim: true }
+        } },
         cativo: { inicio: 'c1', nos: {
           c1: { fala: 'Por favor... eu só carregava as caixas. Não sei de nada.', opcoes: [
             { t: '[Intimidação CD 13] Fale, ou a mina vai ser o menor dos seus problemas.', teste: { p: 'intimidacao', cd: 13, ok: 'c2', falha: 'c3' } },
@@ -216,30 +251,41 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       id: 'mina', titulo: 'A Boca da Mina', sub: 'Galeria Sete, onde o ferro acaba',
       tema: 'mina',
       mapa: [
-        'RR.X..RS',
-        '.^...R..',
-        'tttttttt',
-        '..R...^.',
-        '.X...RR.',
-        '......RR'
+        'RRRRRRRR..RRRRRR...RSR',
+        'R..X...R..R....R...R.R',
+        'R......R..R.^.R......R',
+        'tttttttttttttttttttttR',
+        'R....^...........R...R',
+        'R..RR...X...RR.......R',
+        'R.....R......R...^...R',
+        'RR...RRR...........RRR',
+        'R.......RR....X......R',
+        'R..X....R.....RR.....R',
+        'R.......R............R',
+        'RRRRR...RRRRRRRRRRRRRR'
       ],
       legenda: {
         R: { b: 1, o: 1, m: 'nat:Rock_Medium_1', s: 0.95, var: ['nat:Rock_Medium_1', 'nat:Rock_Medium_2', 'nat:Rock_Medium_3'] },
         X: { b: 1, m: 'vila:Crate', s: 0.6, var: ['vila:Crate', 'vila:Barrel_2'] },
         t: { trilho: 1 }
       },
-      entrada: [[0, 5], [1, 5], [0, 4], [2, 5], [0, 3]],
-      saida: [7, 0],
+      entrada: [[5, 11], [6, 11], [7, 11], [6, 10], [5, 10]],
+      saida: [20, 0],
       unidades: [
-        { id: 'vagonete', obj: 'vagonete', x: 0, y: 2 },
-        { id: 'sven', npc: 'mineiro', x: 4, y: 0, dialogo: 'sven' },
-        { id: 'rato1', m: 'rato', x: 3, y: 4, oculto: true },
-        { id: 'rato2', m: 'rato', x: 4, y: 5, oculto: true },
-        { id: 'rato3', m: 'rato', x: 4, y: 3, oculto: true, min: 3 },
-        { id: 'aranha1', m: 'aranha', x: 5, y: 2, oculto: true },
-        { id: 'aranha2', m: 'aranha', x: 3, y: 2, oculto: true, min: 2 },
-        { id: 'tecela', m: 'aranha_mae', x: 6, y: 2, oculto: true, min: 3 },
-        { id: 'aranha3', m: 'aranha', x: 7, y: 1, oculto: true, min: 5 }
+        { id: 'vagonete', obj: 'vagonete', x: 0, y: 3 },
+        { id: 'sven', npc: 'mineiro', x: 9, y: 1, dialogo: 'sven' },
+        { id: 'bau1', obj: 'bau_velho', x: 1, y: 1 },
+        { id: 'bau2', obj: 'bau_trancado', x: 1, y: 10 },
+        { id: 'pedra1', obj: 'pedra_mina', x: 6, y: 9 },
+        { id: 'rato1', m: 'rato', x: 12, y: 9, oculto: true },
+        { id: 'rato2', m: 'rato', x: 16, y: 10, oculto: true },
+        { id: 'rato3', m: 'rato', x: 11, y: 8, oculto: true, min: 3 },
+        { id: 'rato4', m: 'rato', x: 18, y: 9, oculto: true, min: 6 },
+        { id: 'aranha1', m: 'aranha', x: 14, y: 4, oculto: true },
+        { id: 'aranha2', m: 'aranha', x: 10, y: 4, oculto: true, min: 2 },
+        { id: 'tecela', m: 'aranha_mae', x: 17, y: 2, oculto: true, min: 3 },
+        { id: 'aranha3', m: 'aranha', x: 19, y: 4, oculto: true, min: 5 },
+        { id: 'aranha4', m: 'aranha', x: 12, y: 1, oculto: true, min: 7 }
       ],
       objetivo: 'Avance pela galeria. Há um mineiro preso em algum lugar.',
       inicio: [
@@ -250,24 +296,24 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
           { narrar: 'Vocês seguem as marcas de giz do mapa dos cultistas. Os buracos escondidos no chão aparecem um por um.' },
           { revelar: true }
         ] },
-        { id: 'ratos', se: { area: [3, 3, 7, 5] }, faz: [
+        { id: 'ratos', se: { area: [10, 7, 21, 10] }, faz: [
           { narrar: 'O chão parece se mexer. Ratos do tamanho de cães saem das frestas, com os olhos vermelhos de fome.' },
-          { surgir: ['rato1', 'rato2', 'rato3'] },
+          { surgir: ['rato1', 'rato2', 'rato3', 'rato4'] },
           { flag: 'ratos_ok' },
           { combate: true }
         ] },
-        { id: 'teia', se: { qualquer: [{ area: [2, 0, 7, 2] }, { flag: 'falou_sven' }] }, faz: [
+        { id: 'teia', se: { qualquer: [{ area: [11, 0, 21, 4] }, { flag: 'falou_sven' }] }, faz: [
           { som: 'uivo' },
           { narrar: 'Fios brancos caem do teto. Algo enorme desce devagar, pernas peludas tateando o ar. A Tecelã veio buscar o jantar.' },
-          { surgir: ['aranha1', 'aranha2', 'tecela', 'aranha3'] },
+          { surgir: ['aranha1', 'aranha2', 'tecela', 'aranha3', 'aranha4'] },
           { flag: 'teia_ok' },
-          { objetivo: 'Derrote as aranhas. Dica: o vagonete na casa A3 corre pelos trilhos.' },
+          { objetivo: 'Derrote as aranhas. Dica: o vagonete no começo dos trilhos pode ser empurrado.' },
           { combate: true }
         ] },
         { id: 'fim_mina', se: { flags: ['teia_ok', 'ratos_ok'], semInimigos: true }, faz: [
           { xp: 200 },
           { narrar: 'As teias pegam fogo com a lanterna de um mineiro esquecido. A galeria se abre para um poço com uma escada de madeira que desce até um brilho azul.' },
-          { objetivo: 'Desça pelo poço (casa H1).' },
+          { objetivo: 'Desça pelo poço, no fundo da galeria.' },
           { saida: true }
         ] },
         { id: 'fim_mina2', se: { flag: 'teia_ok', semFlag: 'ratos_ok', semInimigos: true }, faz: [
@@ -291,23 +337,32 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       id: 'lago', titulo: 'O Lago Sem Fundo', sub: 'Uma caverna de cristais azuis',
       tema: 'lago',
       mapa: [
-        '~~~CC~.S',
-        '~~...~..',
-        'C~......',
-        '..~..~~C',
-        '...~~...',
-        '.....~~~'
+        'CC~~~~~~CC~~~~~~~..S',
+        'C~~~~......~~~~~~...',
+        '~~~...C......~~~~..C',
+        '~~..~~~~~..~~~~....~',
+        '~...~~~~~..~~~~..~~~',
+        '....~~~~~..~~~..~~~~',
+        '...~~~~~~..~~~...~~C',
+        '..~~~~~~~..~~~~...~~',
+        '..~~~C...........~~~',
+        '...~~~~~~~~~~~...~~C',
+        '....~~~CC~~~~~~.....',
+        'CC.....~~~~~~~~~..CC'
       ],
       legenda: {
         C: { b: 1, o: 0, cristal: 1 }
       },
-      entrada: [[0, 5], [1, 5], [0, 4], [2, 5], [1, 4]],
-      saida: [7, 0],
+      entrada: [[2, 10], [3, 10], [2, 11], [3, 11], [1, 9]],
+      saida: [19, 0],
       unidades: [
-        { id: 'gorm', m: 'troll', x: 4, y: 1, dialogo: 'gorm' },
-        { id: 'afo1', m: 'afogado', x: 0, y: 1, oculto: true },
-        { id: 'afo2', m: 'afogado', x: 6, y: 4, oculto: true, min: 3 },
-        { id: 'afo3', m: 'afogado', x: 2, y: 3, oculto: true, min: 5 }
+        { id: 'gorm', m: 'troll', x: 10, y: 5, dialogo: 'gorm' },
+        { id: 'bau1', obj: 'bau_velho', x: 7, y: 1 },
+        { id: 'pedra1', obj: 'pedra_lago', x: 16, y: 8 },
+        { id: 'afo1', m: 'afogado', x: 6, y: 4, oculto: true },
+        { id: 'afo2', m: 'afogado', x: 13, y: 7, oculto: true, min: 3 },
+        { id: 'afo3', m: 'afogado', x: 4, y: 2, oculto: true, min: 5 },
+        { id: 'afo4', m: 'afogado', x: 14, y: 3, oculto: true, min: 7 }
       ],
       pacifico: true,
       objetivo: 'Atravesse o lago. Um troll guarda a passagem.',
@@ -317,7 +372,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       ],
       gatilhos: [
         { id: 'briga_troll', se: { flag: 'briga' }, faz: [
-          { surgir: ['afo1', 'afo2', 'afo3'] },
+          { surgir: ['afo1', 'afo2', 'afo3', 'afo4'] },
           { narrar: 'A água do lago borbulha. Mãos pálidas sobem do fundo: os afogados vieram assistir ao banquete do troll.' },
           { objetivo: 'Derrote Gorm. Trolls se regeneram, a menos que sejam queimados.' },
           { combate: true }
@@ -329,7 +384,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
           { flag: 'passagem' }
         ] },
         { id: 'saida_lago', se: { flag: 'passagem' }, faz: [
-          { objetivo: 'Siga pelas pedras até a passagem (casa H1).' },
+          { objetivo: 'Siga pelas pedras até a passagem do outro lado do lago.' },
           { saida: true }
         ] }
       ],
@@ -371,24 +426,33 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       id: 'forja', titulo: 'A Forja dos Antigos', sub: 'Um salão anão esquecido há trezentos anos',
       tema: 'forja', pacifico: true,
       mapa: [
-        '#P.ff.PS',
-        '........',
-        '........',
-        '.P....P.',
-        '........',
-        '........'
+        '#P.....ff......P.S',
+        '..................',
+        '...P.........P....',
+        '..................',
+        '..................',
+        '..................',
+        '...P.........P....',
+        '#######....#######',
+        '.......#..#.......',
+        '..................',
+        '..................',
+        '..................'
       ],
       legenda: {
         P: { b: 1, o: 1, m: 'pillar_decorated', s: 0.72 },
         f: { b: 1, o: 0 }
       },
-      entrada: [[3, 5], [4, 5], [2, 5], [5, 5], [3, 4]],
-      saida: [7, 0],
+      entrada: [[8, 11], [9, 11], [7, 11], [10, 11], [8, 10]],
+      saida: [17, 0],
       unidades: [
-        { id: 'forja', obj: 'forja', x: 3, y: 0 },
-        { id: 'bigorna', obj: 'bigorna', x: 4, y: 2 },
-        { id: 'golem1', m: 'golem', x: 1, y: 1 },
-        { id: 'golem2', m: 'golem', x: 6, y: 2, min: 2 }
+        { id: 'forja', obj: 'forja', x: 7, y: 0 },
+        { id: 'bigorna', obj: 'bigorna', x: 9, y: 3 },
+        { id: 'bau1', obj: 'bau_trancado', x: 1, y: 9 },
+        { id: 'pedra1', obj: 'pedra_ana', x: 16, y: 9 },
+        { id: 'golem1', m: 'golem', x: 3, y: 1 },
+        { id: 'golem2', m: 'golem', x: 14, y: 3, min: 2 },
+        { id: 'golem3', m: 'golem', x: 12, y: 1, min: 6 }
       ],
       objetivo: 'Atravesse o salão. Os guardiões de pedra observam.',
       inicio: [
@@ -396,7 +460,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         { falar: ['golem1', 'QUEM... TRAZ... O... FOGO?'] }
       ],
       gatilhos: [
-        { id: 'acordam', se: { qualquer: [{ area: [0, 0, 7, 0] }, { flag: 'briga' }], semFlag: 'forja_acesa' }, faz: [
+        { id: 'acordam', se: { qualquer: [{ area: [13, 0, 17, 1] }, { flag: 'briga' }], semFlag: 'forja_acesa' }, faz: [
           { falar: ['golem1', 'SEM... FOGO. SEM... PASSAGEM.'] },
           { narrar: 'Os guardiões se arrancam do chão, levantando poeira de três séculos. Seus punhos são do tamanho de bigornas.' },
           { flag: 'golens_acordaram' },
@@ -406,7 +470,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         { id: 'curvam', se: { flag: 'forja_acesa', vivo: 'golem1', semFlag: 'golens_acordaram' }, faz: [
           { falar: ['golem1', 'O... FOGO... VOLTOU. BEM-VINDOS... HERDEIROS.'] },
           { narrar: 'Os guardiões se ajoelham diante da forja acesa e voltam, devagar, para os nichos de pedra.' },
-          { remover: ['golem1', 'golem2'] },
+          { remover: ['golem1', 'golem2', 'golem3'] },
           { xp: 150 },
           { flag: 'passagem' }
         ] },
@@ -416,7 +480,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
           { flag: 'passagem' }
         ] },
         { id: 'saida_forja', se: { flag: 'passagem' }, faz: [
-          { objetivo: 'Use a bigorna se a forja estiver acesa, e siga pela escada (casa H1).' },
+          { objetivo: 'Use a bigorna se a forja estiver acesa, e siga pela escada no fundo do salão.' },
           { saida: true }
         ] }
       ],
@@ -428,28 +492,38 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       id: 'ninho', titulo: 'O Ninho das Penas Negras', sub: 'A caverna do culto',
       tema: 'ninho', pacifico: true,
       mapa: [
-        '##..A.S#',
-        '.J....J.',
-        '........',
-        '..P..P..',
-        '........',
-        '........'
+        '###....A..S....###',
+        '..................',
+        '..................',
+        '....P.......P.....',
+        '..................',
+        '..................',
+        '..................',
+        '....P.......P.....',
+        '..................',
+        '..................',
+        '..................',
+        '..................'
       ],
       legenda: {
         P: { b: 1, o: 1, m: 'pillar_decorated', s: 0.62 },
         A: { b: 1 }
       },
-      entrada: [[3, 5], [4, 5], [2, 5], [5, 5], [3, 4]],
-      saida: [6, 0],
+      entrada: [[8, 11], [9, 11], [7, 11], [10, 11], [8, 10]],
+      saida: [10, 0],
       unidades: [
-        { id: 'altar', obj: 'altar', x: 4, y: 0 },
+        { id: 'altar', obj: 'altar', x: 7, y: 0 },
         { id: 'jaula1', obj: 'jaula', x: 1, y: 1 },
-        { id: 'jaula2', obj: 'jaula', x: 6, y: 1 },
-        { id: 'corvina', m: 'corvina', x: 3, y: 1, dialogo: 'corvina' },
-        { id: 'olaf', m: 'cultista', x: 5, y: 2 },
-        { id: 'n_cult1', m: 'cultista', x: 2, y: 2 },
-        { id: 'n_vid', m: 'cultista_arc', x: 4, y: 1, min: 3 },
-        { id: 'n_cult2', m: 'cultista', x: 6, y: 3, min: 4 }
+        { id: 'jaula2', obj: 'jaula', x: 16, y: 1 },
+        { id: 'jaula3', obj: 'jaula', x: 6, y: 5 },
+        { id: 'bau1', obj: 'bau_velho', x: 17, y: 10 },
+        { id: 'pedra1', obj: 'pedra_ninho', x: 0, y: 9 },
+        { id: 'corvina', m: 'corvina', x: 8, y: 2, dialogo: 'corvina' },
+        { id: 'olaf', m: 'cultista', x: 11, y: 3 },
+        { id: 'n_cult1', m: 'cultista', x: 6, y: 3 },
+        { id: 'n_vid', m: 'cultista_arc', x: 9, y: 1, min: 3 },
+        { id: 'n_cult2', m: 'cultista', x: 12, y: 5, min: 4 },
+        { id: 'n_cult3', m: 'cultista', x: 5, y: 1, min: 6 }
       ],
       objetivo: 'Fale com Irmã Corvina. Ou ataque.',
       inicio: [
@@ -468,7 +542,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         { id: 'fim_ninho', se: { qualquer: [{ flag: 'corvina_salva' }, { flag: 'briga' }], semInimigos: true }, faz: [
           { xp: 150 },
           { narrar: 'O ninho está quieto. Uma escada de pedra sobe para o salão do trono. Lá de cima vem uma luz verde e o som de asas.' },
-          { objetivo: 'Solte os mineiros das jaulas e suba ao trono (casa G1).' },
+          { objetivo: 'Solte os mineiros das jaulas e suba ao trono pela escada atrás do altar.' },
           { saida: true }
         ] }
       ],
@@ -485,7 +559,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
             { t: 'Atacar enquanto ela está fraca!', faz: [{ flag: 'briga' }], fim: true }
           ] },
           v3: { fala: 'NÃO! Ele disse que vocês iam mentir! Penas Negras, à luta!', faz: [{ flag: 'briga' }], fim: true },
-          v4: { fala: 'O cajado cai das mãos dela. A voz dobrada se cala. Corvina chora como uma criança. "Os braseiros", ela sussurra. "Apaguem os braseiros, ou ele nunca vai cair."', faz: [{ flag: 'corvina_salva' }, { flag: 'dica_braseiros' }, { xp: 250 }, { remover: ['corvina', 'olaf', 'n_cult1', 'n_vid', 'n_cult2'] }, { narrar: 'Sem a voz da líder, os cultistas largam as armas e fogem pela escuridão, levando Corvina com eles.' }], fim: true },
+          v4: { fala: 'O cajado cai das mãos dela. A voz dobrada se cala. Corvina chora como uma criança. "Os braseiros", ela sussurra. "Apaguem os braseiros, ou ele nunca vai cair."', faz: [{ flag: 'corvina_salva' }, { flag: 'dica_braseiros' }, { xp: 250 }, { remover: ['corvina', 'olaf', 'n_cult1', 'n_vid', 'n_cult2', 'n_cult3'] }, { narrar: 'Sem a voz da líder, os cultistas largam as armas e fogem pela escuridão, levando Corvina com eles.' }], fim: true },
           v5: { fala: 'Um dos cultistas abaixa o capuz. É um rapaz magro, com o rosto da mãe. "Minha mãe... Ela está bem?" Ele olha para Corvina, depois para vocês, e larga a adaga no chão.', faz: [{ flag: 'olaf_ok' }, { xp: 50 }, { remover: ['olaf'] }, { narrar: 'Olaf corre para as jaulas e começa a forçar os cadeados.' }], opcoes: [
             { t: '[Arcanismo CD 14] Corvina, essa voz dobrada não é sua.', teste: { p: 'arcanismo', cd: 14, ok: 'v2', falha: 'v3' } },
             { t: 'Atacar!', faz: [{ flag: 'briga' }], fim: true }
@@ -499,27 +573,32 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       id: 'trono', titulo: 'O Trono de Ossos', sub: 'Lua cheia, meia-noite',
       tema: 'trono',
       mapa: [
-        '#..TT..#',
-        '........',
-        '........',
-        '.P....P.',
-        '........',
-        '........'
+        '#....TT......#',
+        '..............',
+        '..P........P..',
+        '..............',
+        '..............',
+        '..............',
+        '..P........P..',
+        '..............',
+        '..............',
+        '..............'
       ],
       legenda: {
         T: { b: 1 },
         P: { b: 1, o: 1, m: 'pillar_decorated', s: 0.72 }
       },
-      entrada: [[3, 5], [4, 5], [2, 5], [5, 5], [3, 4]],
+      entrada: [[6, 9], [7, 9], [5, 9], [8, 9], [6, 8]],
       saida: null,
       unidades: [
-        { id: 'trono', obj: 'trono', x: 3, y: 0 },
-        { id: 'br1', obj: 'braseiro', x: 1, y: 1 },
-        { id: 'br2', obj: 'braseiro', x: 6, y: 1 },
-        { id: 'br3', obj: 'braseiro', x: 4, y: 4, min: 3 },
-        { id: 'rei', m: 'rei_corvo', x: 4, y: 1 },
-        { id: 't_esp1', m: 'espectro', x: 2, y: 2 },
-        { id: 't_esp2', m: 'espectro', x: 5, y: 2, min: 3 }
+        { id: 'trono', obj: 'trono', x: 5, y: 0 },
+        { id: 'br1', obj: 'braseiro', x: 2, y: 1 },
+        { id: 'br2', obj: 'braseiro', x: 11, y: 1, min: 2 },
+        { id: 'br3', obj: 'braseiro', x: 6, y: 5, min: 3 },
+        { id: 'rei', m: 'rei_corvo', x: 6, y: 2 },
+        { id: 't_esp1', m: 'espectro', x: 4, y: 3 },
+        { id: 't_esp2', m: 'espectro', x: 9, y: 3, min: 3 },
+        { id: 't_esp3', m: 'espectro', x: 8, y: 1, min: 6 }
       ],
       objetivo: 'Derrote o Rei Corvo.',
       inicio: [
@@ -530,7 +609,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       ],
       gatilhos: [
         { id: 'dica_br', se: { flag: 'dica_braseiros' }, faz: [
-          { narrar: 'Vocês lembram: enquanto as almas queimarem nos braseiros, o Rei não sangra de verdade. Apaguem os braseiros (casas B2, G2 e E5).' }
+          { narrar: 'Vocês lembram: enquanto as almas queimarem nos braseiros, o Rei não sangra de verdade. Apaguem os braseiros de fogo verde.' }
         ] },
         { id: 'sem_dica', se: { semFlag: 'dica_braseiros' }, faz: [
           { narrar: 'As lâminas parecem atravessar fumaça. O fogo verde dos braseiros pulsa a cada golpe que o Rei recebe.' }

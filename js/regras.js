@@ -6,8 +6,10 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
 (function (R) {
   R.VERSAO_REGRAS = 2;
   R.XP_NIVEL = [0, 400, 1100, 3000, 5200];
-  R.COLS = 8;
-  R.LINHAS = 6;
+  // Tabuleiro impresso (4 folhas A4): a "janela" de 12 x 8 casas que cada celular mostra.
+  // Os mapas das cenas podem ser maiores: a janela acompanha o herói de cada jogador.
+  R.COLS = 12;
+  R.LINHAS = 8;
   var MAX_EVENTOS = 90;
 
   // ------------------------------------------------------------- utilidades
@@ -34,7 +36,9 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
   function chave(x, y) { return x + ',' + y; }
   function dist(a, b) { return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)); }
   R.dist = dist;
-  function dentro(x, y) { return x >= 0 && y >= 0 && x < R.COLS && y < R.LINHAS; }
+  // tamanho do mapa da cena atual (colunas, linhas)
+  R.dims = function (e) { var c = R.cena(e); return c ? [c.mapa[0].length, c.mapa.length] : [R.COLS, R.LINHAS]; };
+  function dentro(e, x, y) { var c = R.cena(e); return c && x >= 0 && y >= 0 && y < c.mapa.length && x < c.mapa[0].length; }
   R.nomeCasa = function (x, y) { return 'ABCDEFGH'.charAt(x) + (y + 1); };
   function mod(v) { return v >= 0 ? '+' + v : String(v); }
 
@@ -89,7 +93,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
   // ----------------------------------------------------------------- mapa
   R.terreno = function (e, x, y) {
     var c = R.cena(e);
-    if (!c || !dentro(x, y)) return { b: 1, o: 1, fora: true };
+    if (!c || !dentro(e, x, y)) return { b: 1, o: 1, fora: true };
     var ch = c.mapa[y].charAt(x);
     var t = { ch: ch, b: 0, o: 0, dificil: 0, saida: 0 };
     if (ch === '#') { t.b = 1; t.o = 1; }
@@ -134,7 +138,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       for (var dx = -1; dx <= 1; dx++) for (var dy = -1; dy <= 1; dy++) {
         if (!dx && !dy) continue;
         var nx = cx + dx, ny = cy + dy;
-        if (!dentro(nx, ny)) continue;
+        if (!dentro(e, nx, ny)) continue;
         var t = R.terreno(e, nx, ny);
         if (t.b) continue;
         if (dx && dy && (R.terreno(e, cx + dx, cy).b || R.terreno(e, cx, cy + dy).b)) continue;
@@ -240,11 +244,11 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
   function heroisDePe(e) { return herois(e).filter(function (h) { return !h.caido; }); }
 
   function casaLivreProxima(e, x, y) {
-    if (dentro(x, y) && !R.terreno(e, x, y).b && !R.ocupante(e, x, y)) return [x, y];
-    for (var r = 1; r < 8; r++)
+    if (dentro(e, x, y) && !R.terreno(e, x, y).b && !R.ocupante(e, x, y)) return [x, y];
+    for (var r = 1; r < 12; r++)
       for (var dx = -r; dx <= r; dx++) for (var dy = -r; dy <= r; dy++) {
         var nx = x + dx, ny = y + dy;
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || !dentro(nx, ny)) continue;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || !dentro(e, nx, ny)) continue;
         var t = R.terreno(e, nx, ny);
         if (!t.b && !t.saida && !R.ocupante(e, nx, ny)) return [nx, ny];
       }
@@ -291,6 +295,8 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     alvo.pv -= n;
     ev(e, { t: 'dano', alvo: alvo.id, de: fonte, valor: n, pv: Math.max(0, alvo.pv), tipo: tipo || '' });
     if (alvo.lado === 'heroi') {
+      // fora de combate (armadilha, agulha envenenada) ninguém cai: escapa por pouco com 1 PV
+      if (alvo.pv <= 0 && !e.combate) { alvo.pv = 1; ev(e, { t: 'narra', texto: alvo.nome + ' cambaleia, mas fica de pé por pouco.' }); return; }
       if (alvo.pv <= 0) {
         alvo.pv = 0;
         if (!alvo.caido) { alvo.caido = true; ev(e, { t: 'caiu', alvo: alvo.id, texto: alvo.nome + ' caiu! Um aliado precisa levantá-lo.' }); }
@@ -490,7 +496,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       e.inv = foto.inv; e.ouro = foto.ouro; e.flags = foto.flags; e.xp = foto.xp; e.nivel = foto.nivel;
       foto.herois.forEach(function (h) { if (e.u[h.id]) { var dono = e.u[h.id].dono; e.u[h.id] = h; h.dono = dono; } });
     }
-    for (var y = 0; y < R.LINHAS; y++) for (var x = 0; x < R.COLS; x++)
+    for (var y = 0; y < c.mapa.length; y++) for (var x = 0; x < c.mapa[0].length; x++)
       if (c.mapa[y].charAt(x) === '^') e.armadilhas[chave(x, y)] = { revelada: false, desarmada: false };
     var hs = herois(e);
     hs.forEach(function (h) { h.x = -9; h.y = -9; });
@@ -844,7 +850,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     var mapa = R.custos(e, h.id, lim);
     if (R.ocupante(e, c.x, c.y, h.id)) throw 'Casa ocupada.';
     var cam = caminhoAte(mapa, c.x, c.y);
-    if (!cam) throw 'Não dá para chegar em ' + R.nomeCasa(c.x, c.y) + '.';
+    if (!cam) throw 'Não dá para chegar ali.';
     var g = andar(e, h, cam, lim);
     if (e.combate) e.combate.mov -= g;
   };
@@ -1060,7 +1066,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     var cn = R.cena(e);
     if (!e.saida || !cn.saida) throw 'O caminho ainda não está livre.';
     if (e.combate) throw 'Não dá para fugir no meio do combate.';
-    if (h.x !== cn.saida[0] || h.y !== cn.saida[1]) throw 'Vá até a saída (' + R.nomeCasa(cn.saida[0], cn.saida[1]) + ').';
+    if (h.x !== cn.saida[0] || h.y !== cn.saida[1]) throw 'Vá até a saída, o círculo dourado.';
     ev(e, { t: 'narra', texto: 'O grupo segue viagem...' });
     carregarCena(e, e.cenaIdx + 1);
   };

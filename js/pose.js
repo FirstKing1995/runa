@@ -1,10 +1,10 @@
 // RUNA — matemática da realidade aumentada (sem dependências).
-// Cada casa do tabuleiro impresso tem um marcador ArUco 4x4 com id = linha * 8 + coluna.
+// Cada casa do tabuleiro impresso tem um marcador ArUco 4x4 com id = linha * 12 + coluna.
 // Com os cantos dos marcadores vistos pela câmera, calcula a homografia
 // tabuleiro -> imagem e, dela, a posição da câmera em relação ao tabuleiro.
 
-export const COLS = 8;
-export const LINHAS = 6;
+export const COLS = 12;
+export const LINHAS = 8;
 export const MARCA = 0.6; // lado do quadrado preto do marcador, em casas
 
 // Cantos do marcador no tabuleiro (unidade = 1 casa), na ordem do js-aruco:

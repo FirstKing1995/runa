@@ -193,6 +193,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
   // ----------------------------------------------------------------- NPCs
   R.NPCS = {
     bjorn: { nome: 'Bjorn, o taverneiro', vis: 'bjorn', voz: { tom: 0.6, vel: 0.95 } },
+    gunnar: { nome: 'Gunnar, o bêbado', vis: 'gunnar', voz: { tom: 0.8, vel: 0.85 } },
     alda: { nome: 'Alda, a anciã', vis: 'alda', voz: { tom: 1.1, vel: 0.85 } },
     ravna: { nome: 'Ravna, caçadora de monstros', vis: 'ravna', voz: { tom: 0.9, vel: 0.9 } },
     edvin: { nome: 'Edvin, mercador ferido', vis: 'edvin', pose: 'caido', voz: { tom: 0.85, vel: 0.85 } },
@@ -212,31 +213,39 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       id: 'taverna', titulo: 'O Javali Manco', sub: 'Pedrafria, noite de nevasca',
       tema: 'taverna',
       mapa: [
-        'BK==.EEB',
-        '........',
-        '.M..M...',
-        '........',
-        '...M....',
-        'S.......'
+        'BK==.EEB#BBXX.XK',
+        '........#.......',
+        '.M..M...#.......',
+        '................',
+        '...M....#...X...',
+        '####.####.......',
+        '.....M..........',
+        '..M.......M.....',
+        '...........M....',
+        'S......E........'
       ],
       legenda: {
         B: { b: 1, m: 'barrel_large', s: 0.7 },
         K: { b: 1, m: 'keg_decorated', s: 0.8 },
         '=': { b: 1, m: 'table_long_decorated_A', s: 1.1, r: 90 },
         E: { b: 1, o: 1, m: 'shelf_small_candles', s: 0.9 },
-        M: { b: 1, m: 'table_medium_decorated_A', s: 0.95 }
+        M: { b: 1, m: 'table_medium_decorated_A', s: 0.95 },
+        X: { b: 1, m: 'crates_stacked', s: 0.8, var: ['crates_stacked', 'barrel_small_stack', 'box_stacked'] }
       },
-      entrada: [[1, 5], [2, 5], [1, 4], [0, 4], [2, 4]],
-      saida: [0, 5],
+      entrada: [[1, 9], [2, 9], [1, 8], [0, 8], [2, 8]],
+      saida: [0, 9],
       unidades: [
         { id: 'bjorn', npc: 'bjorn', x: 4, y: 0, dialogo: 'bjorn' },
         { id: 'alda', npc: 'alda', x: 2, y: 2, dialogo: 'alda', pose: 'sentada' },
-        { id: 'ravna', npc: 'ravna', x: 7, y: 3, dialogo: 'ravna' },
-        { id: 'alcapao', obj: 'alcapao', x: 6, y: 4 },
-        { id: 'oss1', m: 'ossudo', x: 6, y: 5, oculto: true },
-        { id: 'oss2', m: 'ossudo', x: 7, y: 4, oculto: true },
-        { id: 'oss3', m: 'ossudo', x: 5, y: 5, oculto: true, min: 3 },
-        { id: 'oss4', m: 'ossudo', x: 7, y: 5, oculto: true, min: 5 }
+        { id: 'ravna', npc: 'ravna', x: 14, y: 7, dialogo: 'ravna' },
+        { id: 'gunnar', npc: 'gunnar', x: 5, y: 8, dialogo: 'gunnar' },
+        { id: 'alcapao', obj: 'alcapao', x: 11, y: 2 },
+        { id: 'bau1', obj: 'bau_velho', x: 15, y: 1 },
+        { id: 'oss1', m: 'ossudo', x: 12, y: 3, oculto: true },
+        { id: 'oss2', m: 'ossudo', x: 13, y: 2, oculto: true },
+        { id: 'oss3', m: 'ossudo', x: 10, y: 3, oculto: true, min: 3 },
+        { id: 'oss4', m: 'ossudo', x: 14, y: 3, oculto: true, min: 5 },
+        { id: 'oss5', m: 'ossudo', x: 11, y: 4, oculto: true, min: 7 }
       ],
       objetivo: 'Converse com Alda, a anciã sentada à mesa.',
       inicio: [
@@ -247,7 +256,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         { id: 'sino_toca', se: { flag: 'aceitou_trabalho' }, faz: [
           { som: 'sino' },
           { narrar: 'DONG. O sino da torre velha ecoa pela vila. As velas tremem. Debaixo do alçapão do porão, algo arranha a madeira... e a tampa explode em lascas.' },
-          { surgir: ['oss1', 'oss2', 'oss3', 'oss4'] },
+          { surgir: ['oss1', 'oss2', 'oss3', 'oss4', 'oss5'] },
           { falar: ['oss1', 'O sino chama... juntem-se a nós...'] },
           { falar: ['ravna', 'Mortos-vivos! Mirem nos crânios, eles caem rápido!'] },
           { objetivo: 'Destrua os mortos-vivos que saíram do porão.' },
@@ -257,7 +266,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
           { xp: 150 },
           { narrar: 'O último crânio rola pelo chão de tábuas. Entre os ossos há terra escura, cheirando a túmulo antigo. Terra da colina do Rei Corvo.' },
           { falar: ['alda', 'Pelos deuses... Eles estão vindo da cripta. A estrada passa pela Floresta de Breu. Vão, antes da próxima badalada!'] },
-          { objetivo: 'Saia pela porta da taverna (casa A6) rumo à Floresta de Breu.' },
+          { objetivo: 'Saia pela porta da taverna, no canto de baixo, rumo à Floresta de Breu.' },
           { saida: true }
         ] }
       ],
@@ -281,6 +290,14 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
           a4ok: { fala: 'Tem razão... Leve também o anel do meu marido. Vale outras cinquenta. Só tragam Liv para casa.', faz: [{ ouro: 50 }], opcoes: [{ t: 'Pode confiar em nós.', vai: 'a5' }] },
           a4no: { fala: 'Não tenho mais nada. Se o preço é alto demais, a porta está ali.', opcoes: [{ t: 'Tudo bem. Aceitamos.', vai: 'a5' }] },
           a5: { fala: 'Obrigada. Que a luz guie seus passos. Ah... vocês ouviram isso?', faz: [{ ouro: 50 }, { flag: 'aceitou_trabalho' }, { flag: 'sino_toca_ok' }], fim: true }
+        } },
+        gunnar: { inicio: 'u1', nos: {
+          u1: { fala: 'Eu vi! Eu vi a menina, a Liv, sendo levada por um homem magro de manto. Ele tocava um sininho. Ninguém acredita no velho Gunnar.', opcoes: [
+            { t: '[Intuição CD 11] Você viu mais alguma coisa, não viu?', teste: { p: 'intuicao', cd: 11, ok: 'u2', falha: 'u3' }, seNao: 'gunnar_ok' },
+            { t: 'Vá dormir, Gunnar.', fim: true }
+          ] },
+          u2: { fala: 'O homem foi para a floresta, pela estrada velha. E os lobos fugiam dele, chorando feito filhotes. Tome, minha última garrafa de coragem. Cura mais do que embebeda.', faz: [{ item: ['pocao', 1] }, { flag: 'gunnar_ok' }, { xp: 25 }], fim: true },
+          u3: { fala: 'Mais nada. Me paga uma? Não? Então me deixa em paz.', fim: true }
         } },
         bjorn: { inicio: 'b1', nos: {
           b1: { fala: 'O que vai ser? Cerveja, sopa, ou fofoca?', opcoes: [
@@ -313,44 +330,66 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       id: 'floresta', titulo: 'Floresta de Breu', sub: 'A estrada velha, sob a neve',
       tema: 'floresta',
       mapa: [
-        'TT.T.TTT',
-        '.R...T..',
-        '.......S',
-        '........',
-        'T..R..T.',
-        'TT.TT.TT'
+        'TTTT.TTTTTTTT.TTTTTT',
+        'T..T...T.....R...T.T',
+        'T.....R..TT.........',
+        '..........T....T....',
+        '....................',
+        '...................S',
+        '..T...R.......T.....',
+        'T....TT...T.....R..T',
+        'TT.......TTT........',
+        'T..R..T........TT..T',
+        'T........T..R......T',
+        'TTTTTTT.TTTTTT.TTTTT'
       ],
       legenda: {
         T: { b: 1, o: 1, m: 'nat:Pine_1', s: 1.0, var: ['nat:Pine_1', 'nat:Pine_2', 'nat:Pine_3', 'nat:Pine_4', 'nat:Pine_5'] },
         R: { b: 1, m: 'nat:Rock_Medium_1', s: 0.85, var: ['nat:Rock_Medium_1', 'nat:Rock_Medium_2', 'nat:Rock_Medium_3'] }
       },
-      entrada: [[0, 2], [0, 3], [1, 3], [0, 1], [1, 2]],
-      saida: [7, 2],
+      entrada: [[0, 4], [0, 5], [1, 4], [1, 5], [0, 3]],
+      saida: [19, 5],
       unidades: [
-        { id: 'carroca', obj: 'carroca', x: 3, y: 2 },
-        { id: 'edvin', npc: 'edvin', x: 3, y: 3, dialogo: 'edvin' },
-        { id: 'lobo1', m: 'lobo', x: 7, y: 1, oculto: true },
-        { id: 'lobo2', m: 'lobo', x: 7, y: 3, oculto: true },
-        { id: 'lobo3', m: 'lobo', x: 6, y: 3, oculto: true, min: 3 },
-        { id: 'lobo4', m: 'lobo', x: 7, y: 4, oculto: true, min: 5 }
+        { id: 'carroca', obj: 'carroca', x: 8, y: 4 },
+        { id: 'edvin', npc: 'edvin', x: 8, y: 5, dialogo: 'edvin' },
+        { id: 'ervas1', obj: 'ervas', x: 5, y: 2 },
+        { id: 'bau1', obj: 'bau_velho', x: 2, y: 9 },
+        { id: 'pedra1', obj: 'pedra_floresta', x: 11, y: 9 },
+        { id: 'lobo1', m: 'lobo', x: 16, y: 3, oculto: true },
+        { id: 'lobo2', m: 'lobo', x: 17, y: 5, oculto: true },
+        { id: 'lobo3', m: 'lobo', x: 16, y: 6, oculto: true, min: 3 },
+        { id: 'lobo4', m: 'lobo', x: 18, y: 4, oculto: true, min: 5 },
+        { id: 'lobo7', m: 'lobo', x: 17, y: 2, oculto: true, min: 7 },
+        { id: 'loba1', m: 'lobo', x: 2, y: 8, oculto: true },
+        { id: 'loba2', m: 'lobo', x: 4, y: 10, oculto: true, min: 3 }
       ],
       objetivo: 'Siga pela estrada. Há uma carroça tombada à frente.',
       inicio: [
         { narrar: 'A Floresta de Breu engole a luz. Os pinheiros rangem com o peso da neve e a estrada some entre as raízes. Adiante, uma carroça tombada. E um gemido baixo.' }
       ],
       gatilhos: [
-        { id: 'lobos', se: { qualquer: [{ flag: 'falou_edvin' }, { area: [4, 0, 7, 5] }] }, faz: [
+        { id: 'lobos', se: { qualquer: [{ flag: 'falou_edvin' }, { area: [12, 0, 19, 11] }] }, faz: [
           { som: 'uivo' },
           { narrar: 'Uivos cortam o silêncio. Olhos amarelos acendem entre as árvores. Os lobos de Breu sentiram o cheiro de sangue.' },
-          { surgir: ['lobo1', 'lobo2', 'lobo3', 'lobo4'] },
+          { surgir: ['lobo1', 'lobo2', 'lobo3', 'lobo4', 'lobo7'] },
           { flag: 'lobos_ok' },
           { objetivo: 'Sobreviva à matilha.' },
           { combate: true }
         ] },
+        { id: 'covil', se: { area: [0, 8, 6, 10] }, faz: [
+          { narrar: 'Entre as raízes de um pinheiro caído, um rosnado. Uma loba protege a toca, e não está sozinha.' },
+          { surgir: ['loba1', 'loba2'] },
+          { flag: 'covil_ok' },
+          { combate: true }
+        ] },
+        { id: 'fim_covil', se: { flag: 'covil_ok', semInimigos: true }, faz: [
+          { xp: 75 },
+          { narrar: 'Na toca, entre ossos roídos, o que sobrou de um caçador azarado.' }
+        ] },
         { id: 'fim_lobos', se: { flag: 'lobos_ok', semInimigos: true }, faz: [
           { xp: 100 },
           { narrar: 'O último lobo foge ganindo para a escuridão. A estrada para leste está livre. Rastros de botas seguem na mesma direção.' },
-          { objetivo: 'Siga a estrada para leste (casa H3).' },
+          { objetivo: 'Siga a estrada para leste, até o fim da floresta.' },
           { saida: true }
         ] }
       ],
@@ -374,12 +413,18 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       id: 'acampamento', titulo: 'O Acampamento de Garra', sub: 'Clareira dos foragidos',
       tema: 'floresta', pacifico: true,
       mapa: [
-        'TTtTT.tT',
-        'T.......',
-        '...F..X.',
-        '........',
-        'T.X....R',
-        'TT.TTTST'
+        'TTTTTTtTTTTtTTTTTT',
+        'T.......t.........',
+        'T..X.........X...T',
+        '.......F.........T',
+        '..........X......T',
+        'T...t............T',
+        'T.........F.....RT',
+        'TT..X........X...T',
+        'T......R.........T',
+        'T..........TT.....',
+        'TT.....TT......S.T',
+        'TTTTTTTTTTTTTTT.TT'
       ],
       legenda: {
         T: { b: 1, o: 1, m: 'nat:Pine_1', s: 1.0, var: ['nat:Pine_1', 'nat:Pine_2', 'nat:Pine_3', 'nat:Pine_4', 'nat:Pine_5'] },
@@ -388,14 +433,16 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         X: { b: 1, m: 'crate_A_big', s: 0.7, var: ['crate_A_big', 'barrel', 'resource_lumber'] },
         R: { b: 1, m: 'nat:Rock_Medium_2', s: 0.85 }
       },
-      entrada: [[0, 2], [0, 3], [1, 3], [1, 2], [2, 3]],
-      saida: [6, 5],
+      entrada: [[0, 3], [0, 4], [1, 3], [1, 4], [2, 4]],
+      saida: [15, 10],
       unidades: [
-        { id: 'garra', m: 'garra', x: 4, y: 1, dialogo: 'garra', npcAte: 'combate' },
-        { id: 'band1', m: 'bandido', x: 5, y: 2 },
-        { id: 'band2', m: 'besteiro', x: 7, y: 1 },
-        { id: 'band3', m: 'bandido', x: 5, y: 3, min: 3 },
-        { id: 'band4', m: 'besteiro', x: 4, y: 4, min: 4 }
+        { id: 'garra', m: 'garra', x: 9, y: 3, dialogo: 'garra', npcAte: 'combate' },
+        { id: 'band1', m: 'bandido', x: 10, y: 2 },
+        { id: 'band2', m: 'besteiro', x: 14, y: 1 },
+        { id: 'band3', m: 'bandido', x: 11, y: 5, min: 3 },
+        { id: 'band4', m: 'besteiro', x: 9, y: 7, min: 4 },
+        { id: 'band5', m: 'bandido', x: 12, y: 8, min: 6 },
+        { id: 'bau1', obj: 'bau_trancado', x: 5, y: 6 }
       ],
       objetivo: 'Consiga a Chave de Osso com Garra. Por bem ou por mal.',
       inicio: [
@@ -411,7 +458,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         ] },
         { id: 'rendeu', se: { flag: 'garra_rendeu' }, faz: [
           { falar: ['garra', 'Chega! Chega! Leva essa maldita chave. Ela só trouxe azar pra gente.'] },
-          { fugir: ['band1', 'band2', 'band3', 'band4'] },
+          { fugir: ['band1', 'band2', 'band3', 'band4', 'band5'] },
           { remover: ['garra'] },
           { flag: 'tem_chave' }
         ] },
@@ -423,7 +470,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
           { item: ['chave', 1] },
           { xp: 150 },
           { narrar: 'A Chave de Osso pesa na mão como se estivesse viva. Ao sul, além do pântano, fica a colina do Rei Corvo. Mas há quem diga que a bruxa do pântano sabe os segredos da cripta.' },
-          { objetivo: 'Siga a trilha para o sul, rumo ao pântano (casa G6).' },
+          { objetivo: 'Siga a trilha para o sul, rumo ao pântano.' },
           { saida: true }
         ] }
       ],
@@ -439,8 +486,8 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
             { t: 'Pagamos 50 moedas.', req: { ouro: 50 }, faz: [{ ouro: -50 }], vai: 'g3' },
             { t: 'Então vai ser do jeito difícil.', faz: [{ flag: 'briga' }], fim: true }
           ] },
-          g3: { fala: 'Hm. Tem razão, sabe? Leve. E se forem à colina, passem antes pela bruxa do pântano. Ela sabe coisas que ninguém devia saber.', faz: [{ flag: 'tem_chave' }, { flag: 'paz_garra' }, { xp: 100 }, { remover: ['garra', 'band1', 'band2', 'band3', 'band4'] }, { narrar: 'Garra joga a chave aos seus pés. Os bandidos recolhem as tendas e somem entre as árvores.' }], fim: true },
-          g4: { fala: 'Calma, calma! Ninguém precisa morrer hoje. Aqui, pega essa porcaria.', faz: [{ flag: 'tem_chave' }, { xp: 100 }, { remover: ['garra', 'band1', 'band2', 'band3', 'band4'] }, { narrar: 'Os bandidos fogem para a mata, deixando a fogueira acesa.' }], fim: true },
+          g3: { fala: 'Hm. Tem razão, sabe? Leve. E se forem à colina, passem antes pela bruxa do pântano. Ela sabe coisas que ninguém devia saber.', faz: [{ flag: 'tem_chave' }, { flag: 'paz_garra' }, { xp: 100 }, { remover: ['garra', 'band1', 'band2', 'band3', 'band4', 'band5'] }, { narrar: 'Garra joga a chave aos seus pés. Os bandidos recolhem as tendas e somem entre as árvores.' }], fim: true },
+          g4: { fala: 'Calma, calma! Ninguém precisa morrer hoje. Aqui, pega essa porcaria.', faz: [{ flag: 'tem_chave' }, { xp: 100 }, { remover: ['garra', 'band1', 'band2', 'band3', 'band4', 'band5'] }, { narrar: 'Os bandidos fogem para a mata, deixando a fogueira acesa.' }], fim: true },
           g5: { fala: 'Ha! Achou que ia me enganar? Rapazes, ao trabalho!', faz: [{ flag: 'briga' }], fim: true }
         } }
       }
@@ -451,12 +498,18 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       id: 'pantano', titulo: 'A Cabana de Mãe Lodo', sub: 'Pântano das Sanguessugas',
       tema: 'pantano',
       mapa: [
-        'T~~..~~T',
-        '~~.HhA~~',
-        '~......~',
-        '..~..~..',
-        '..~~..~.',
-        '....~~.S'
+        'T~~~..~~TT~~~..~~~~T',
+        '~~.....HhA~~..~...~~',
+        '~...............~~.~',
+        '..~~..~~...~~.......',
+        '..~...~.....~~..~...',
+        '.....~~~.......~....',
+        '..~.....~..~~....~..',
+        '~~~..~.....~...~~...',
+        '.......~~.....~~~...',
+        '..~~.......~.......S',
+        'T....~~..~~...~~...T',
+        'TT~~....T....~~~..TT'
       ],
       legenda: {
         T: { b: 1, o: 1, m: 'nat:Dead_Tree_1', s: 1.05, var: ['nat:Dead_Tree_1', 'nat:Dead_Tree_2', 'nat:Dead_Tree_3'] },
@@ -464,15 +517,18 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         h: { b: 1, o: 1 },
         A: { b: 1, m: 'shrine_candles', s: 0.8 }
       },
-      entrada: [[0, 5], [1, 5], [0, 4], [1, 4], [0, 3]],
-      saida: [7, 5],
+      entrada: [[0, 8], [1, 8], [0, 9], [1, 9], [2, 8]],
+      saida: [19, 9],
       unidades: [
-        { id: 'lodo', npc: 'lodo', x: 3, y: 2, dialogo: 'lodo' },
-        { id: 'bau_bruxa', obj: 'bau_bruxa', x: 2, y: 1 },
-        { id: 'afo1', m: 'afogado', x: 1, y: 1, oculto: true },
-        { id: 'afo2', m: 'afogado', x: 6, y: 1, oculto: true },
-        { id: 'afo3', m: 'afogado', x: 5, y: 3, oculto: true, min: 3 },
-        { id: 'afo4', m: 'afogado', x: 6, y: 4, oculto: true, min: 5 }
+        { id: 'lodo', npc: 'lodo', x: 8, y: 3, dialogo: 'lodo' },
+        { id: 'bau_bruxa', obj: 'bau_bruxa', x: 6, y: 2 },
+        { id: 'ervas1', obj: 'ervas', x: 18, y: 7 },
+        { id: 'pedra1', obj: 'pedra_pantano', x: 3, y: 5 },
+        { id: 'afo1', m: 'afogado', x: 4, y: 1, oculto: true },
+        { id: 'afo2', m: 'afogado', x: 12, y: 2, oculto: true },
+        { id: 'afo3', m: 'afogado', x: 10, y: 5, oculto: true, min: 3 },
+        { id: 'afo4', m: 'afogado', x: 13, y: 6, oculto: true, min: 5 },
+        { id: 'afo5', m: 'afogado', x: 9, y: 6, oculto: true, min: 7 }
       ],
       objetivo: 'Fale com Mãe Lodo, a bruxa do pântano.',
       inicio: [
@@ -485,7 +541,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
           { narrar: 'A bruxa bate o cajado na lama. Da água escura, mãos inchadas e pálidas se erguem. Os afogados do pântano obedecem à sua senhora.' },
           { falar: ['lodo', 'Brinquem com eles, meus queridos. Mamãe vai assistir.'] },
           { remover: ['lodo'] },
-          { surgir: ['afo1', 'afo2', 'afo3', 'afo4'] },
+          { surgir: ['afo1', 'afo2', 'afo3', 'afo4', 'afo5'] },
           { objetivo: 'Derrote os afogados.' },
           { combate: true }
         ] },
@@ -495,7 +551,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
           { flag: 'pode_sair' }
         ] },
         { id: 'saida_p', se: { flag: 'pode_sair' }, faz: [
-          { objetivo: 'Siga para a colina do Rei Corvo (casa H6).' },
+          { objetivo: 'Atravesse o pântano para o leste, rumo à colina do Rei Corvo.' },
           { saida: true }
         ] }
       ],
@@ -526,31 +582,40 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       id: 'cripta', titulo: 'A Cripta do Rei Corvo', sub: 'Sob a colina, onde a luz não chega',
       tema: 'cripta',
       mapa: [
-        '.P...#.S',
-        '...^.#.#',
-        '.P...P..',
-        '..^.....',
-        '###.####',
-        '........'
+        '.P......#.....P..S',
+        '...^....#.......##',
+        '.P....P.#..^..P...',
+        '..^...............',
+        '.P....P.#.....^...',
+        '..................',
+        '########.#########',
+        '........^.........',
+        '..................',
+        '......#....#......',
+        '..................',
+        '..................'
       ],
       legenda: {
         P: { b: 1, o: 1, m: 'pillar_decorated', s: 0.75 }
       },
-      entrada: [[3, 5], [4, 5], [2, 5], [5, 5], [1, 5]],
-      saida: [7, 0],
+      entrada: [[8, 11], [9, 11], [7, 11], [10, 11], [8, 10]],
+      saida: [17, 0],
       unidades: [
-        { id: 'porta', obj: 'porta_cripta', x: 3, y: 4 },
-        { id: 'portao', obj: 'portao', x: 6, y: 0 },
+        { id: 'porta', obj: 'porta_cripta', x: 8, y: 6 },
+        { id: 'portao', obj: 'portao', x: 16, y: 0 },
         { id: 'alav1', obj: 'alavanca', x: 0, y: 0 },
-        { id: 'alav2', obj: 'alavanca2', x: 7, y: 3 },
+        { id: 'alav2', obj: 'alavanca2', x: 17, y: 5 },
         { id: 'bau', obj: 'bau_cripta', x: 0, y: 3 },
-        { id: 'cav', m: 'cavaleiro', x: 6, y: 1, oculto: true },
-        { id: 'c_oss1', m: 'ossudo', x: 4, y: 0, oculto: true },
-        { id: 'c_oss2', m: 'ossudo', x: 1, y: 1, oculto: true },
-        { id: 'c_arq', m: 'arqueiro', x: 4, y: 2, oculto: true, min: 3 },
-        { id: 'c_oss3', m: 'ossudo', x: 5, y: 3, oculto: true, min: 4 }
+        { id: 'pedra1', obj: 'pedra_cripta', x: 2, y: 9 },
+        { id: 'bau2', obj: 'bau_velho', x: 16, y: 10 },
+        { id: 'cav', m: 'cavaleiro', x: 13, y: 1, oculto: true },
+        { id: 'c_oss1', m: 'ossudo', x: 5, y: 1, oculto: true },
+        { id: 'c_oss2', m: 'ossudo', x: 2, y: 4, oculto: true },
+        { id: 'c_arq', m: 'arqueiro', x: 11, y: 4, oculto: true, min: 3 },
+        { id: 'c_oss3', m: 'ossudo', x: 14, y: 3, oculto: true, min: 4 },
+        { id: 'c_arq2', m: 'arqueiro', x: 4, y: 5, oculto: true, min: 6 }
       ],
-      objetivo: 'Abra a porta da cripta (casa D5).',
+      objetivo: 'Abra a porta da cripta, ao norte da entrada.',
       inicio: [
         { narrar: 'A colina do Rei Corvo é um monte de pedras negras coroado por corvos que não voam. A porta da cripta tem a forma de um crânio aberto, e uma fechadura no lugar dos dentes.' }
       ],
@@ -558,7 +623,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         { id: 'desperta', se: { flag: 'porta_aberta' }, faz: [
           { som: 'pedra' },
           { narrar: 'A porta range. O ar de dentro é frio como a primeira noite de inverno. Nos nichos, ossos se juntam, armaduras se erguem. O guardião do Rei Corvo abre os olhos verdes.' },
-          { surgir: ['cav', 'c_oss1', 'c_oss2', 'c_arq', 'c_oss3'] },
+          { surgir: ['cav', 'c_oss1', 'c_oss2', 'c_arq', 'c_oss3', 'c_arq2'] },
           { falar: ['cav', 'Ninguém perturba o sono do Rei.'] },
           { objetivo: 'Derrote os guardiões. Cuidado com o chão: a cripta tem armadilhas.' },
           { combate: true }
@@ -566,13 +631,13 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         { id: 'guardioes', se: { flag: 'porta_aberta', semInimigos: true }, faz: [
           { xp: 150 },
           { narrar: 'Os guardiões caem em pedaços. No fundo da cripta, um portão de ferro bloqueia uma escada que sobe. Duas alavancas enferrujadas, uma em cada canto da sala.' },
-          { objetivo: 'Puxe as duas alavancas para abrir o portão (casas A1 e H4).' }
+          { objetivo: 'Puxe as duas alavancas, uma em cada ponta da cripta, para abrir o portão.' }
         ] },
         { id: 'portao_abre', se: { flags: ['alav1', 'alav2'] }, faz: [
           { som: 'pedra' },
           { narrar: 'Com um estrondo, o portão de ferro sobe. Lá de cima, vem o som de correntes e uma risada seca. E então, o sino. DONG.' },
           { remover: ['portao'] },
-          { objetivo: 'Suba ao Salão do Sino (casa H1).' },
+          { objetivo: 'Suba ao Salão do Sino pela escada atrás do portão.' },
           { saida: true }
         ] }
       ],
@@ -584,26 +649,31 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       id: 'salao', titulo: 'O Salão do Sino', sub: 'Meia-noite',
       tema: 'salao',
       mapa: [
-        '#..Bx..#',
-        '.P....P.',
-        '........',
-        '........',
-        '.P....P.',
-        '........'
+        '#....Bx......#',
+        '..P........P..',
+        '..............',
+        '....P....P....',
+        '..............',
+        '..............',
+        '..P........P..',
+        '..............',
+        '..............',
+        '..............'
       ],
       legenda: {
         P: { b: 1, o: 1, m: 'pillar_decorated', s: 0.72 },
         B: { b: 0 },
         x: { b: 1 }
       },
-      entrada: [[3, 5], [4, 5], [2, 5], [5, 5], [3, 4]],
+      entrada: [[6, 9], [7, 9], [5, 9], [8, 9], [6, 8]],
       saida: null,
       unidades: [
-        { id: 'sino', obj: 'sino', x: 3, y: 0 },
-        { id: 'liv', npc: 'liv', x: 1, y: 0, dialogo: 'liv' },
-        { id: 'vorag', m: 'vorag', x: 4, y: 1 },
-        { id: 's_oss1', m: 'ossudo', x: 2, y: 1 },
-        { id: 's_oss2', m: 'ossudo', x: 5, y: 1, min: 3 }
+        { id: 'sino', obj: 'sino', x: 5, y: 0 },
+        { id: 'liv', npc: 'liv', x: 2, y: 0, dialogo: 'liv' },
+        { id: 'vorag', m: 'vorag', x: 7, y: 1 },
+        { id: 's_oss1', m: 'ossudo', x: 4, y: 1 },
+        { id: 's_oss2', m: 'ossudo', x: 9, y: 1, min: 3 },
+        { id: 's_oss3', m: 'ossudo', x: 10, y: 2, min: 6 }
       ],
       objetivo: 'Derrote Vorag, o Sineiro.',
       inicio: [
@@ -672,6 +742,24 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
       ok: [{ som: 'pedra' }, { narrar: 'CLANK. A segunda corrente se move.' }, { flag: 'alav2' }, { virar: true }] },
     bau_cripta: { nome: 'Sarcófago do tesoureiro', vis: 'bau_ouro', bloqueia: true, acao: 'Abrir', uma: true,
       ok: [{ narrar: 'Moedas antigas com a efígie de um corvo, e dois frascos vermelhos selados com cera.' }, { ouro: 80 }, { item: ['pocao', 2] }] },
+    // exploração: baús, ervas e pedras com histórias da região
+    bau_velho: { nome: 'Baú velho', vis: 'bau', bloqueia: true, acao: 'Abrir o baú', uma: true,
+      ok: [{ narrar: 'Entre trapos e teias, algumas moedas e um frasco vermelho bem fechado.' }, { ouro: 20 }, { item: ['pocao', 1] }] },
+    bau_trancado: { nome: 'Baú trancado', vis: 'bau_ouro', bloqueia: true, acao: 'Arrombar a fechadura', teste: { p: 'des', cd: 13 },
+      ok: [{ narrar: 'Clique. A tranca cede. Dentro, prata velha e uma poção.' }, { ouro: 45 }, { item: ['pocao', 1] }, { xp: 25 }],
+      falha: [{ narrar: 'A fechadura resiste. Talvez mãos mais leves consigam.' }] },
+    ervas: { nome: 'Moita de ervas', vis: 'ervas', bloqueia: false, acao: 'Colher ervas', teste: { p: 'sobrevivencia', cd: 11 },
+      ok: [{ narrar: 'Folhas de sangue-de-lobo e raiz-de-neve. Dá para preparar uma poção.' }, { item: ['pocao', 1] }],
+      falha: [{ narrar: 'Só mato comum e espinhos.' }] },
+    pedra_floresta: { nome: 'Pedra rúnica', vis: 'runa', bloqueia: true, acao: 'Ler as runas', uma: true, teste: { p: 'historia', cd: 12 },
+      ok: [{ narrar: 'As runas contam de um rei que comia corvos para ver o que eles viam. O nome dele foi raspado da pedra a machado.' }, { xp: 40 }],
+      falha: [{ narrar: 'As runas estão gastas demais pela neve.' }] },
+    pedra_pantano: { nome: 'Pedra afundada', vis: 'runa', bloqueia: true, acao: 'Ler as runas', uma: true, teste: { p: 'arcanismo', cd: 12 },
+      ok: [{ narrar: 'Uma marca de bruxa: um olho dentro de uma gota. Mãe Lodo está neste pântano há mais tempo do que a vila existe.' }, { xp: 40 }],
+      falha: [{ narrar: 'Musgo demais. Só dá para ver que alguém riscou um olho.' }] },
+    pedra_cripta: { nome: 'Lápide dos sentinelas', vis: 'runa', bloqueia: true, acao: 'Ler a lápide', uma: true, teste: { p: 'historia', cd: 12 },
+      ok: [{ narrar: '"Aqui jazem os que juraram guardar o Rei até o fim dos tempos." Um juramento assim prende a alma ao corpo. Prata ajuda a soltar.' }, { xp: 40 }],
+      falha: [{ narrar: 'Uma língua antiga, que vocês não conhecem.' }] },
     sino: { nome: 'O Sino do Rei Corvo', vis: 'sino', bloqueia: true, alvoPv: true, pv: 20, ca: 10,
       acao: 'Examinar', ok: [{ narrar: 'O badalo é um crânio coroado. Ele pulsa com luz verde a cada respiração de Vorag.' }] }
   };

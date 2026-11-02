@@ -7,7 +7,9 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const BASE = 'assets/m/';
 const PISO = 0.12;
-const COLS = 8, LINHAS = 6;
+// Tamanho do mapa da cena atual (muda a cada cena) e do tabuleiro impresso (fixo).
+let COLS = 12, LINHAS = 8;
+const TAB_C = 12, TAB_L = 8;
 
 // ------------------------------------------------------------ catálogo visual
 const VIS = {
@@ -36,6 +38,8 @@ const VIS = {
   lobo: { m: 'q/Wolf', tint: 0x8a8a96, h: 0.62, proprio: 'Wolf', investe: true },
   // Capítulo II
   hedda: { m: 'Rogue', ver: [], tint: 0xe0b8a0, h: 0.9 },
+  gunnar: { m: 'Barbarian', ver: ['Mug'], tint: 0xc0a888, h: 0.92 },
+  velho: { m: 'Barbarian', ver: [], tint: 0xb0a8a0, h: 0.88 },
   brokk: { m: 'Barbarian', ver: ['1H_Axe'], tint: 0xc08a60, h: 0.74 },
   mineiro: { m: 'Barbarian', ver: [], tint: 0x9a8f86, h: 0.95 },
   cativo: { m: 'Rogue_Hooded', ver: [], tint: 0x7a3a48, h: 0.9 },
@@ -322,6 +326,7 @@ export class Mundo {
     } else {
       this.raiz.matrix.identity();
       this.raiz.matrixWorldNeedsUpdate = true;
+      this.renderer.clippingPlanes = [];
       this.raiz.visible = true;
       this.camera.fov = 45;
       this.redimensionar();
@@ -334,9 +339,9 @@ export class Mundo {
   // Distância da câmera conforme a tela: celular em pé precisa de mais recuo.
   enquadrar() {
     const a = (this.W || 1) / (this.H || 1);
-    const d = a < 0.6 ? 2.05 : a < 0.85 ? 1.7 : a < 1.2 ? 1.3 : 1;
-    this.controles.target.set(4, 0.2, 3.2);
-    this.camera.position.set(4, 6.6 * d, 3.2 + 7.6 * d);
+    const d = (a < 0.6 ? 2.05 : a < 0.85 ? 1.7 : a < 1.2 ? 1.3 : 1) * 0.85;
+    this.controles.target.set(COLS / 2, 0.2, LINHAS / 2);
+    this.camera.position.set(COLS / 2, 6.6 * d, LINHAS / 2 + 7.6 * d);
     this.controles.maxDistance = 18 * d;
     this.controles.update();
   }
@@ -377,13 +382,44 @@ export class Mundo {
     this.raiz.matrixWorldNeedsUpdate = true;
     this.raiz.visible = true;
   }
+  // Em AR, o papel (12 x 8) mostra um pedaço do mapa da cena, centrado no herói do jogador.
+  _janelaQuadro(dt) {
+    if (this.modo !== 'ar') {
+      this.mundo.position.set(0, 0, 0);
+      this.renderer.clippingPlanes = [];
+      return;
+    }
+    const v = this.alvoSeguir && this.un.get(this.alvoSeguir);
+    const maxX = Math.max(0, COLS - TAB_C), maxZ = Math.max(0, LINHAS - TAB_L);
+    let ax = maxX / 2, az = maxZ / 2;
+    if (v) {
+      ax = Math.min(maxX, Math.max(0, v.raiz.position.x - TAB_C / 2));
+      az = Math.min(maxZ, Math.max(0, v.raiz.position.z - TAB_L / 2));
+    }
+    if (!this.janela) this.janela = { x: ax, z: az };
+    const k = Math.min(1, dt * 2.5);
+    this.janela.x += (ax - this.janela.x) * k;
+    this.janela.z += (az - this.janela.z) * k;
+    // mapas menores que o papel ficam centralizados nele
+    const cx = COLS < TAB_C ? -(TAB_C - COLS) / 2 : this.janela.x;
+    const cz = LINHAS < TAB_L ? -(TAB_L - LINHAS) / 2 : this.janela.z;
+    this.mundo.position.set(-cx, 0, -cz);
+    // recorte: só aparece o que está em cima da folha
+    if (!this.planos) this.planos = [new THREE.Plane(), new THREE.Plane(), new THREE.Plane(), new THREE.Plane()];
+    this.raiz.updateMatrixWorld();
+    const m = this.raiz.matrixWorld, mg = 0.04;
+    const def = [[1, 0, 0, mg], [-1, 0, 0, TAB_C + mg], [0, 0, 1, mg], [0, 0, -1, TAB_L + mg]];
+    def.forEach((d, i) => { this.planos[i].set(new THREE.Vector3(d[0], d[1], d[2]), d[3]).applyMatrix4(m); });
+    this.renderer.clippingPlanes = this.raiz.visible ? this.planos : [];
+  }
   esconderAR() { this.raiz.visible = false; this.tpose.ok = false; }
 
   _aplicarFundo() {
     const t = this.tema;
     if (!t || this.modo === 'ar') return;
     this.cena.background = new THREE.Color(t.fundo);
-    this.cena.fog = new THREE.Fog(t.nevoa[0], t.nevoa[1], t.nevoa[2]);
+    const extra = Math.max(0, Math.max(COLS - 8, LINHAS - 6));
+    this.cena.fog = new THREE.Fog(t.nevoa[0], t.nevoa[1] + extra, t.nevoa[2] + extra * 1.5);
   }
 
   // ----------------------------------------------------------- montagem da cena
@@ -391,6 +427,9 @@ export class Mundo {
     if (this.cenaId === c.id) return;
     this.cenaId = c.id;
     this.cenaDados = c;
+    COLS = c.mapa[0].length; LINHAS = c.mapa.length;
+    this._montarDestaques();
+    this.janela = null;
     for (const v of this.un.values()) this.camadaUn.remove(v.raiz);
     this.un.clear();
     this.camadaCena.clear();
@@ -429,7 +468,7 @@ export class Mundo {
     // saia de terra e mesa de madeira só no modo mesa 3D
     this.saia = new THREE.Mesh(new THREE.CylinderGeometry(5.6, 3.2, 1.4, 9, 1), new THREE.MeshStandardMaterial({ map: texL, roughness: 1, flatShading: true }));
     this.saia.position.set(COLS / 2, -0.7, LINHAS / 2);
-    this.saia.scale.set(1, 1, 0.82);
+    this.saia.scale.set(COLS / 8, 1, LINHAS / 6 * 0.82);
     this.saia.visible = this.modo !== 'ar';
     this.camadaCena.add(this.saia);
     this.mesa = new THREE.Group();
@@ -452,9 +491,6 @@ export class Mundo {
       this.camadaCena.add(m);
     }
 
-    // marcas de coordenada nas bordas (ajudam a achar a casa no papel)
-    for (let x = 0; x < COLS; x++) { const s = textoSprite('ABCDEFGH'[x], '#e8d9b0', 40); s.position.set(x + 0.5, PISO + 0.05, LINHAS + 0.28); s.scale.multiplyScalar(0.6); s.material.depthTest = true; this.camadaCena.add(s); }
-    for (let y = 0; y < LINHAS; y++) { const s = textoSprite(String(y + 1), '#e8d9b0', 40); s.position.set(-0.28, PISO + 0.05, y + 0.5); s.scale.multiplyScalar(0.6); s.material.depthTest = true; this.camadaCena.add(s); }
 
     // props do mapa
     const tarefas = [];
@@ -472,6 +508,14 @@ export class Mundo {
     }
     this._entorno(c, r, tarefas);
     this._enfeites(c, r, tarefas);
+    // mapas grandes: luzes espalhadas para nenhum canto ficar no escuro
+    const LUZ_TEMA = { taverna: 0xffa860, cripta: 0x7dffc0, forja: 0xff9a50, ninho: 0xc890ff, mina: 0xffa860, salao: 0x80ffb0, trono: 0x80ffb0, lago: 0x5ac8ff };
+    if (LUZ_TEMA[c.tema] && (COLS > 8 || LINHAS > 6)) {
+      for (let lz = 2.5; lz < LINHAS; lz += 4.5) for (let lx = 3; lx < COLS; lx += 6) {
+        if (lx < 8 && lz < 6) continue; // o canto original já tem luz
+        this._luz(lx, 1.1, lz, LUZ_TEMA[c.tema], 0.9);
+      }
+    }
     this._particulas(t.part);
     // anel de saída
     this.anelSaida = this._anelSaida();
@@ -547,9 +591,9 @@ export class Mundo {
       this.mesa.add(this._tampoMesa(0x3a2414));
     } else if (c.tema === 'floresta' || c.tema === 'pantano') {
       const arv = c.tema === 'floresta' ? ['nat:Pine_1', 'nat:Pine_2', 'nat:Pine_3', 'nat:Pine_4', 'nat:Pine_5'] : ['nat:Dead_Tree_1', 'nat:Dead_Tree_2', 'nat:Dead_Tree_3', 'nat:Twisted_Tree_1'];
-      for (let i = 0; i < 26; i++) {
-        const a = (i / 26) * Math.PI * 2, d = 5.2 + r() * 1.4;
-        const x = COLS / 2 + Math.cos(a) * d * 1.05, z = LINHAS / 2 + Math.sin(a) * d * 0.85;
+      for (let i = 0; i < 26 + COLS * 2; i++) {
+        const a = (i / (26 + COLS * 2)) * Math.PI * 2, d = 1 + r() * 0.25;
+        const x = COLS / 2 + Math.cos(a) * d * (COLS / 2 + 1.3), z = LINHAS / 2 + Math.sin(a) * d * (LINHAS / 2 + 1.3);
         if (pinta(x, z)) add(arv[Math.floor(r() * arv.length)], x, z, 1.1 + r() * 0.7, r() * 360);
       }
       for (let i = 0; i < 10; i++) { const x = -1 + r() * (COLS + 2), z = r() < 0.5 ? -0.8 - r() : LINHAS + 0.7 + r(); add('nat:Rock_Medium_' + (1 + i % 3), x, z, 0.5 + r() * 0.5, r() * 360); }
@@ -637,10 +681,10 @@ export class Mundo {
   }
   _rochedo(r, add) {
     // paredão de rocha em volta da caverna
-    for (let i = 0; i < 22; i++) {
-      const a = (i / 22) * Math.PI * 2, d = 5.0 + r() * 0.8;
-      const x = COLS / 2 + Math.cos(a) * d * 1.05, z = LINHAS / 2 + Math.sin(a) * d * 0.85;
-      if (z > LINHAS + 0.6 && Math.abs(x - COLS / 2) < 3) continue;
+    const n = 22 + COLS * 2;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2, d = 1 + r() * 0.15;
+      const x = COLS / 2 + Math.cos(a) * d * (COLS / 2 + 1.1), z = LINHAS / 2 + Math.sin(a) * d * (LINHAS / 2 + 1.1);
       add('nat:Rock_Medium_' + (1 + (i % 3)), x, z, 1.2 + r() * 1.3, r() * 360);
     }
   }
@@ -649,9 +693,9 @@ export class Mundo {
       add('vila:Bell_Tower', COLS / 2 + 0.6, -2.2, 2.4, 0);
       add('vila:Fantasy_Inn', -2.2, 3.2, 2.4, 90);
       add('vila:Market_Stand_2', COLS + 1.2, 3.6, 1.0, -90);
-      for (let i = 0; i < 18; i++) {
-        const a = (i / 18) * Math.PI * 2, d = 5.8 + r() * 1.2;
-        const x = COLS / 2 + Math.cos(a) * d * 1.05, z = LINHAS / 2 + Math.sin(a) * d * 0.85;
+      for (let i = 0; i < 18 + COLS * 2; i++) {
+        const a = (i / (18 + COLS * 2)) * Math.PI * 2, d = 1.05 + r() * 0.25;
+        const x = COLS / 2 + Math.cos(a) * d * (COLS / 2 + 1.4), z = LINHAS / 2 + Math.sin(a) * d * (LINHAS / 2 + 1.4);
         if (z < -1 && Math.abs(x - COLS / 2) < 2) continue;
         add('nat:Pine_' + (1 + (i % 5)), x, z, 1.2 + r() * 0.6, r() * 360);
       }
@@ -667,12 +711,12 @@ export class Mundo {
       this.mesa.add(this._tampoMesa(0x1a140e));
     } else if (c.tema === 'lago') {
       this._rochedo(r, add);
-      for (let i = 0; i < 10; i++) {
-        const a = (i / 10) * Math.PI * 2, d = 4.6 + r() * 0.6;
-        this._cristais(COLS / 2 + Math.cos(a) * d * 1.05, LINHAS / 2 + Math.sin(a) * d * 0.85, 1.6 + r() * 1.2, r);
+      for (let i = 0; i < 10 + COLS; i++) {
+        const a = (i / (10 + COLS)) * Math.PI * 2, d = 0.95 + r() * 0.1;
+        this._cristais(COLS / 2 + Math.cos(a) * d * (COLS / 2 + 0.8), LINHAS / 2 + Math.sin(a) * d * (LINHAS / 2 + 0.8), 1.6 + r() * 1.2, r);
       }
       const lago = new THREE.Mesh(new THREE.CircleGeometry(7.5, 40), new THREE.MeshStandardMaterial({ color: 0x0a2a3a, roughness: 0.1, metalness: 0.4, emissive: 0x041824 }));
-      lago.rotation.x = -Math.PI / 2; lago.position.set(COLS / 2, PISO - 0.08, LINHAS / 2); lago.scale.set(1, 0.8, 1);
+      lago.rotation.x = -Math.PI / 2; lago.position.set(COLS / 2, PISO - 0.08, LINHAS / 2); lago.scale.set(COLS / 8, LINHAS / 6 * 0.8, 1);
       this.camadaCena.add(lago); this.agua.push(lago);
       this.mesa.add(this._tampoMesa(0x0a1218));
     } else if (c.tema === 'forja') {
@@ -698,7 +742,7 @@ export class Mundo {
     }
   }
   _tampoMesa(cor) {
-    const m = new THREE.Mesh(new THREE.CircleGeometry(16, 40), new THREE.MeshStandardMaterial({ color: cor, roughness: 1 }));
+    const m = new THREE.Mesh(new THREE.CircleGeometry(16 + Math.max(COLS, LINHAS), 40), new THREE.MeshStandardMaterial({ color: cor, roughness: 1 }));
     m.rotation.x = -Math.PI / 2; m.position.set(COLS / 2, -1.4, LINHAS / 2);
     return m;
   }
@@ -767,6 +811,8 @@ export class Mundo {
   _montarDestaques() {
     const geo = new THREE.PlaneGeometry(0.92, 0.92);
     geo.rotateX(-Math.PI / 2);
+    if (this.grupoDest) this.mundo.remove(this.grupoDest);
+    this.destaques = [];
     this.grupoDest = new THREE.Group();
     this.mundo.add(this.grupoDest);
     for (let i = 0; i < COLS * LINHAS; i++) {
@@ -780,6 +826,7 @@ export class Mundo {
     borda.rotation.x = -Math.PI / 2;
     borda.visible = false;
     borda.renderOrder = 6;
+    if (this.cursor) this.mundo.remove(this.cursor);
     this.cursor = borda;
     this.mundo.add(borda);
   }
@@ -939,6 +986,12 @@ export class Mundo {
       const luz = new THREE.PointLight(0x40ff80, 2.5, 3.2, 1.5); luz.position.y = 0.5; g.add(luz);
       g.userData.pivo = pivo; g.userData.badalo = badalo; g.userData.luzSino = luz; g.userData.altura = 1.2;
       g.position.x = 0.5;
+    } else if (v === 'runa') {
+      const pedraR = new THREE.MeshStandardMaterial({ color: 0x6a6e74, roughness: 1, flatShading: true });
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, 0.85, 6), pedraR); m.position.y = 0.42; m.rotation.y = 0.4; m.castShadow = true; g.add(m);
+      const s = textoSprite('ᚱ', '#8ae0ff', 54); s.position.set(0, 0.5, 0.2); s.scale.multiplyScalar(0.7); s.material.depthTest = true; g.add(s);
+      g.userData.altura = 0.9; g.userData.brilha = true;
+    } else if (v === 'ervas') { sub('nat:Bush_with_Flowers_1', 0.55, 0); g.userData.altura = 0.4; g.userData.brilha = true;
     } else if (v === 'vagonete') {
       const caixa = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.32, 0.46), madeira); caixa.position.y = 0.26; caixa.castShadow = true; g.add(caixa);
       for (const yy of [0.16, 0.36]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.04, 0.48), ferro); b.position.y = yy; g.add(b); }
@@ -1463,7 +1516,7 @@ export class Mundo {
     if (!v || this.modo === 'ar') return;
     // desliza a câmera junto com o alvo, sem girar; puxa só até metade do caminho
     const ini = this.controles.target.clone();
-    const alvo = new THREE.Vector3(4, 0.2, 3).lerp(v.raiz.position.clone().setY(0.2), 0.5);
+    const alvo = new THREE.Vector3(COLS / 2, 0.2, LINHAS / 2).lerp(v.raiz.position.clone().setY(0.2), 0.5);
     const camIni = this.camera.position.clone();
     this._tween(600, (t) => {
       const k = facil(t);
@@ -1503,6 +1556,7 @@ export class Mundo {
       c.s.material.opacity = 1 - c.f;
     }
     if (this.particulas) this._moverParticulas(dt, agora);
+    this._janelaQuadro(dt);
     if (this.modo !== 'ar') {
       this._seguirQuadro(dt);
       this.controles.update();

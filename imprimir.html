@@ -28,7 +28,11 @@
     .cabeca { position: absolute; left: 0; right: 0; text-align: center; font-size: 4mm; letter-spacing: 1.5mm; color: #333; }
     .pe { position: absolute; left: 12mm; right: 12mm; font-family: 'Alegreya Sans', sans-serif; font-size: 2.8mm; color: #555; display: flex; justify-content: space-between; gap: 4mm; }
     .corte { position: absolute; top: 0; bottom: 0; border-left: 0.3mm dashed #999; }
+    .corte.h { top: auto; bottom: auto; left: 0; right: 0; border-left: 0; border-top: 0.3mm dashed #999; }
     .corte span { position: absolute; top: 4mm; left: 1mm; font-family: 'Alegreya Sans'; font-size: 2.6mm; color: #777; white-space: nowrap; }
+    .corte.h span { top: 1mm; left: 4mm; }
+    .mapa-folhas { display: inline-grid; grid-template-columns: repeat(2, 34px); gap: 3px; vertical-align: middle; margin: 0 6px; }
+    .mapa-folhas i { height: 24px; border: 1px solid var(--borda-clara); background: #2a1e12; font-style: normal; font-size: 11px; display: grid; place-items: center; }
     .regua { position: absolute; height: 3mm; border: 0.25mm solid #444; border-top: 0; font-family: 'Alegreya Sans'; font-size: 2.4mm; color: #444; }
     .regua::before { content: '10 cm — confira com uma régua: precisa medir exatamente isso'; position: absolute; top: 3.5mm; left: 0; white-space: nowrap; }
     @media screen and (max-width: 860px) { .folha { zoom: 0.42; } }
@@ -48,15 +52,16 @@
   <div class="topo">
     <a class="marca" href="index.html" style="font-size:1.4rem;text-decoration:none">RUNA</a>
     <h1 style="font-size:1.6rem;margin-top:14px">Tabuleiro para imprimir</h1>
-    <p style="color:var(--texto2)">Cada casa tem um código que o celular reconhece. O mesmo tabuleiro serve para todas as cenas da campanha: o que muda é o mundo que aparece na tela.</p>
+    <p style="color:var(--texto2)">O tabuleiro tem 12 x 8 casas, cada uma com um código que o celular reconhece. Ele é uma janela para o mundo: os mapas das cenas são maiores que o papel, e a janela acompanha o seu herói enquanto ele explora. O mesmo tabuleiro serve para toda a campanha.</p>
     <div class="opcoes">
-      <label><input type="radio" name="fmt" value="duas" checked> Duas folhas A4 (recomendado, casas de 4,5 cm)</label>
-      <label><input type="radio" name="fmt" value="uma"> Uma folha A4 deitada (casas de 3,3 cm)</label>
+      <label><input type="radio" name="fmt" value="quatro" checked> Quatro folhas A4 deitadas (recomendado, casas de 4,5 cm)</label>
+      <label><input type="radio" name="fmt" value="duas"> Duas folhas A4 em pé (casas de 3,3 cm)</label>
+      <label><input type="radio" name="fmt" value="uma"> Uma folha A4 deitada (compacto, casas de 2,2 cm)</label>
     </div>
     <ol>
       <li>Imprima em <b>tamanho real (100%)</b>, sem "ajustar à página". Preto e branco serve.</li>
       <li>Confira a régua de 10 cm na primeira folha.</li>
-      <li id="passo-juntar">Corte a folha 1 na linha tracejada e encoste a borda cortada na grade da folha 2, alinhando as linhas. Prenda com fita por baixo.</li>
+      <li id="passo-juntar">Corte nas linhas tracejadas e encaixe as folhas lado a lado na ordem <span class="mapa-folhas" id="ordem-folhas"></span>, alinhando as linhas da grade. Prenda com fita por baixo.</li>
       <li>Coloque sobre a mesa com boa luz, sem reflexo. Papel mais grosso (ou colado num papelão) fica mais reto e funciona melhor.</li>
     </ol>
     <button class="btn ouro" onclick="print()"><i data-lucide="printer"></i> Imprimir</button>
@@ -70,7 +75,8 @@
   <script src="js/dicionario.js"></script>
   <script>
     definirDicionarioRuna(AR);
-    const dic = new AR.Dictionary('RUNA48');
+    const dic = new AR.Dictionary('RUNA96');
+    const COLS = 12, LINHAS = 8, LETRAS = 'ABCDEFGHIJKL';
     const RUNAS = 'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟ';
     const MARCA = 0.6;
     function marcador(id, lado) {
@@ -79,33 +85,48 @@
       for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) if (bits[y * 4 + x] === '1') r += `<rect x="${x + 1}" y="${y + 1}" width="1.02" height="1.02" fill="#fff"/>`;
       return `<svg viewBox="0 0 6 6" width="${lado}mm" height="${lado}mm" shape-rendering="crispEdges"><rect width="6" height="6" fill="#000"/>${r}</svg>`;
     }
-    function grade(cols, linhas, casa, x0, y0, col0) {
+    function grade(cols, linhas, casa, x0, y0, col0, lin0) {
       let h = `<div class="grade" style="left:${x0}mm;top:${y0}mm;grid-template-columns:repeat(${cols},${casa}mm);grid-template-rows:repeat(${linhas},${casa}mm)">`;
       for (let y = 0; y < linhas; y++) for (let x = 0; x < cols; x++) {
-        const cx = col0 + x, id = y * 8 + cx;
-        h += `<div class="casa"><span class="rot">${'ABCDEFGH'[cx]}${y + 1}</span>${marcador(id, casa * MARCA)}<span class="rune">${RUNAS[id % RUNAS.length]}</span></div>`;
+        const cx = col0 + x, cy = lin0 + y, id = cy * COLS + cx;
+        h += `<div class="casa"><span class="rot" style="font-size:${Math.max(1.8, casa * 0.058)}mm">${LETRAS[cx]}${cy + 1}</span>${marcador(id, casa * MARCA)}<span class="rune">${RUNAS[id % RUNAS.length]}</span></div>`;
       }
       return h + '</div>';
     }
+    // folha com um pedaço da grade; corta à direita e/ou embaixo para encostar na vizinha
+    function folha(tipo, n, total, casa, cols, linhas, col0, lin0, x0, y0, cortaDir, cortaBaixo, extra) {
+      return `<div class="folha ${tipo}">
+        <div class="cabeca" style="top:${Math.max(2, y0 - 9)}mm">RUNA · FOLHA ${n} DE ${total} · COLUNAS ${LETRAS[col0]}–${LETRAS[col0 + cols - 1]} · LINHAS ${lin0 + 1}–${lin0 + linhas}</div>
+        ${grade(cols, linhas, casa, x0, y0, col0, lin0)}
+        ${cortaDir ? `<div class="corte" style="left:${x0 + cols * casa}mm"><span>cortar aqui</span></div>` : ''}
+        ${cortaBaixo ? `<div class="corte h" style="top:${y0 + linhas * casa}mm"><span>cortar aqui</span></div>` : ''}
+        ${extra || ''}
+      </div>`;
+    }
     function montar(fmt) {
       const f = document.getElementById('folhas');
-      document.getElementById('passo-juntar').hidden = fmt !== 'duas';
-      document.getElementById('estilo-pagina').textContent = fmt === 'uma' ? '@media print { @page { size: A4 landscape; margin: 0; } }' : '';
-      if (fmt === 'duas') {
-        const casa = 45, x0 = 15, y0 = 16;
-        f.innerHTML = [0, 4].map((c0, i) => `<div class="folha a4-retrato">
-          <div class="cabeca" style="top:6mm">RUNA · FOLHA ${i + 1} DE 2 · COLUNAS ${c0 ? 'E–H' : 'A–D'}</div>
-          ${grade(4, 6, casa, x0, y0, c0)}
-          ${i === 0 ? `<div class="corte" style="left:${x0 + 4 * casa}mm"><span>cortar aqui</span></div><div class="regua" style="left:${x0}mm;top:${y0 + 6 * casa + 3}mm;width:100mm"></div>` : `<div class="pe" style="top:${y0 + 6 * casa + 3}mm"><span>Encoste a folha 1 aqui à esquerda, alinhando as linhas.</span><span>A Noite do Sino Morto</span></div>`}
-        </div>`).join('');
+      document.getElementById('passo-juntar').hidden = fmt === 'uma';
+      document.getElementById('ordem-folhas').innerHTML = fmt === 'quatro' ? '<i>1</i><i>2</i><i>3</i><i>4</i>' : '<i>1</i><i>2</i>';
+      document.getElementById('ordem-folhas').style.gridTemplateColumns = 'repeat(2, 34px)';
+      document.getElementById('estilo-pagina').textContent = fmt === 'duas' ? '' : '@media print { @page { size: A4 landscape; margin: 0; } }';
+      const regua = (x, y) => `<div class="regua" style="left:${x}mm;top:${y}mm;width:100mm"></div>`;
+      if (fmt === 'quatro') {
+        // 4 folhas deitadas, 6 x 4 casas cada, em 2 x 2
+        const casa = 45, x0 = 13.5, y0 = 13;
+        f.innerHTML = [[0, 0], [6, 0], [0, 4], [6, 4]].map(([c0, l0], i) =>
+          folha('a4-paisagem', i + 1, 4, casa, 6, 4, c0, l0, x0, y0, c0 === 0, l0 === 0, i === 3 ? regua(x0, y0 + 4 * casa + 4) : '')).join('');
+      } else if (fmt === 'duas') {
+        // 2 folhas em pé, 6 x 8 casas cada, lado a lado
+        const casa = 33, x0 = 6, y0 = 12;
+        f.innerHTML = [0, 6].map((c0, i) => folha('a4-retrato', i + 1, 2, casa, 6, 8, c0, 0, x0, y0, c0 === 0, false, i === 1 ? regua(x0, y0 + 8 * casa + 4) : '')).join('');
       } else {
-        const casa = 33, x0 = (297 - 8 * casa) / 2, y0 = 6;
-        f.innerHTML = `<div class="folha a4-paisagem">${grade(8, 6, casa, x0, y0, 0)}
-          <div class="pe" style="top:${y0 + 6 * casa + 1.5}mm"><span>RUNA · tabuleiro compacto</span><span>Imprima em 100%, sem ajustar à página</span></div></div>`;
+        const casa = 22, x0 = (297 - 12 * casa) / 2, y0 = 12;
+        f.innerHTML = `<div class="folha a4-paisagem">${grade(12, 8, casa, x0, y0, 0, 0)}
+          <div class="pe" style="top:${y0 + 8 * casa + 2}mm"><span>RUNA · tabuleiro compacto: aproxime mais o celular</span><span>Imprima em 100%, sem ajustar à página</span></div></div>`;
       }
     }
     document.querySelectorAll('[name=fmt]').forEach((r) => r.onchange = () => montar(r.value));
-    montar('duas');
+    montar('quatro');
     lucide.createIcons();
   </script>
 </body>

@@ -206,7 +206,7 @@ async function tratar(ev, rapido) {
     case 'nivel': Som.sfx('nivel'); if (!rapido) await faixa('Nível ' + ev.nivel, ev.texto, 2600); return;
     case 'item': case 'ouro': Som.sfx('moeda'); toast(ev.t === 'ouro' ? (ev.qtd > 0 ? '+' : '') + ev.qtd + ' moedas de prata (total ' + ev.total + ')' : ev.texto); return;
     case 'objetivo': toast('Novo objetivo: ' + ev.texto); return;
-    case 'saida': toast('Caminho livre: vá até a casa ' + R.nomeCasa(ev.x, ev.y) + ' e toque em Seguir viagem.'); return;
+    case 'saida': toast('Caminho livre: vá até o círculo dourado e toque em Seguir viagem.'); return;
     case 'som': Som.sfx(ev.som); return mundo.animar(ev, E);
     case 'hab': {
       const s = { luz: 'magia', zombaria: 'erro', palavra: 'cura', cura_massa: 'cura', impor: 'cura', cancao: 'cura', inspirar: 'magia', bencao: 'nivel', divino: 'aco', aura: 'magia', fogo: null, bola: 'fogo', chuva: 'virote', misseis: 'magia', trovao: 'trovao', furia: 'combate', surto: 'combate', giro: 'aco', veneno: 'moeda', pocao: 'cura', balsamo: 'cura', folego: 'cura', marca: 'virote' }[ev.fx];
@@ -488,7 +488,7 @@ function renderHud() {
   const btns = [];
   if (sel.previa) {
     const [x, y] = sel.previa.split(',').map(Number);
-    btns.push(`<button class="btn ouro" id="bt-confirma-mover"><i data-lucide="footprints"></i> Mover para ${R.nomeCasa(x, y)}</button>`);
+    btns.push(`<button class="btn ouro" id="bt-confirma-mover"><i data-lucide="footprints"></i> Mover para cá</button>`);
     btns.push(`<button class="btn fantasma icone-so" id="bt-cancela" aria-label="Cancelar"><i data-lucide="x"></i></button>`);
   } else if (cb && !minha) {
     btns.push(`<button class="btn fantasma" disabled>${h.caido ? 'Caído: um aliado precisa te levantar' : 'Aguardando a vez de ' + esc(nomeDe(vez))}</button>`);
@@ -603,7 +603,7 @@ function aoTocar(cx, cy) {
   if (!minhaVez(h)) { toast(h.caido ? h.nome + ' está caído.' : 'Espere a sua vez.'); return; }
   const k = c.x + ',' + c.y;
   const d = R.destinos(E, h.id);
-  if (d[k] == null) { toast('Não dá para chegar em ' + R.nomeCasa(c.x, c.y) + (E.combate ? ' neste turno.' : '.')); return; }
+  if (d[k] == null) { toast('Não dá para chegar ali' + (E.combate ? ' neste turno.' : '.')); return; }
   if (sel.previa === k) { limparSelecao(); enviar({ t: 'mover', heroi: h.id, x: c.x, y: c.y }); return; }
   sel = { modo: null, hab: null, item: null, previa: k };
   $('#folha').hidden = true;
@@ -856,7 +856,8 @@ const AJUDA = `<h3>Como jogar</h3>
   <p><b>Andar.</b> Toque numa casa: o caminho aparece. Toque de novo (ou em Mover) para confirmar.</p>
   <p><b>Atacar, falar, examinar.</b> Toque no inimigo, no personagem ou no objeto. As opções e a chance de acerto aparecem.</p>
   <p><b>Dados.</b> Tudo usa o d20: rolagem + bônus contra a Classe de Armadura (CA) ou a Classe de Dificuldade (CD). 20 natural é crítico.</p>
-  <p><b>Realidade aumentada.</b> Imprima as duas folhas em tamanho real (100%), junte lado a lado e deixe sobre a mesa com boa luz. Aponte o celular de 30 a 60 cm, um pouco inclinado. Basta ver algumas casas para o mundo inteiro aparecer.</p>
+  <p><b>Explorar.</b> Os mapas são maiores que o papel. A janela acompanha o seu herói: ande até a borda e o mundo desliza. A saída de cada cena é o círculo dourado.</p>
+  <p><b>Realidade aumentada.</b> Imprima as folhas do tabuleiro em tamanho real (100%), junte na ordem indicada e deixe sobre a mesa com boa luz. Aponte o celular de 30 a 60 cm, um pouco inclinado. Basta ver algumas casas para o mundo inteiro aparecer.</p>
   <p><b>Caiu?</b> Um aliado ao lado usa "Levantar aliado" ou dá uma poção. Se todos caírem, o grupo recomeça a cena.</p>`;
 
 function mostrarFinal(textos) {
