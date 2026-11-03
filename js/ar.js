@@ -65,6 +65,7 @@ export class Rastreador {
     const agora = performance.now();
     if (agora - (this.ultEnvio || 0) < 45) return;
     this.ultEnvio = agora;
+    this.tQuadro = agora; // instante do quadro: casa a pose com o giroscópio
     const esc = LARGURA_DETECCAO / this.vw;
     const w = Math.round(this.vw * esc), h = Math.round(this.vh * esc);
     if (this.canvas.width !== w) { this.canvas.width = w; this.canvas.height = h; }
@@ -96,6 +97,7 @@ export class Rastreador {
           }
         }
         const po = P.pose(r.H, this.focoAtual(), cx, cy);
+        po.t0 = this.tQuadro;
         this.ultimaPose = po;
         this.ultimoVisto = performance.now();
       }

@@ -278,6 +278,8 @@ export class Mundo {
     this.cenaId = null;
     this.tremer = 0;
     this.tpose = { p: new THREE.Vector3(), q: new THREE.Quaternion(), ok: false };
+    this.giro = null; // giroscópio (js/giro.js), ligado junto com a câmera
+    this.atrasoVideo = 60; // ms entre a cena real e o quadro do vídeo na tela
     // Luzes pontuais: um número fixo, sempre na cena. Mudar a quantidade de luzes obriga o
     // navegador a recompilar todos os materiais (era o travão a cada magia e troca de cena).
     this.poolLuz = [];
@@ -370,8 +372,11 @@ export class Mundo {
   }
 
   // po = { R (linhas), t } do tabuleiro na câmera (OpenCV). f em px do vídeo.
-  aplicarPose(po, f, vw, vh) {
+  // qCam: rotação do celular (giroscópio) no instante do quadro. Com ela, o tabuleiro vai para
+  // um sistema fixo no mundo e só a câmera gira; sem ela, a câmera fica parada na origem.
+  aplicarPose(po, f, vw, vh, qCam) {
     if (!po) return;
+    if (!!qCam !== !!this.tpose.comGiro) { this.tpose.ok = false; this.tpose.comGiro = !!qCam; }
     const s = Math.max(this.W / vw, this.H / vh);
     const fy = f * s;
     const fov = 2 * Math.atan(this.H / (2 * fy)) * 180 / Math.PI;
@@ -388,7 +393,14 @@ export class Mundo {
     m.multiply(base);
     const p = new THREE.Vector3(), q = new THREE.Quaternion(), e = new THREE.Vector3();
     m.decompose(p, q, e);
+    if (qCam) { p.applyQuaternion(qCam); q.premultiply(qCam); }
     const tp = this.tpose;
+    // com o giroscópio, o tabuleiro parado no mundo quase não gira entre leituras; se ficar
+    // saltando, o sensor deste celular não confere com a câmera e é melhor desligá-lo
+    if (qCam && tp.ok && tp.alvoQ) {
+      this._saltos = q.angleTo(tp.alvoQ) > 0.35 ? (this._saltos || 0) + 1 : 0;
+      if (this._saltos >= 4) { this.giroRuim = true; tp.ok = false; }
+    }
     if (!tp.ok || tp.p.distanceTo(p) > 2.5) {
       tp.p.copy(p); tp.q.copy(q); tp.ok = true;
       tp.alvoP = p.clone(); tp.alvoQ = q.clone();
@@ -410,7 +422,11 @@ export class Mundo {
   // mexe o mapa; diferença grande é o celular se movendo e o mapa acompanha rápido.
   _estabilizarPose(dt) {
     const tp = this.tpose;
-    if (this.modo !== 'ar' || !tp.ok || !tp.alvoP) return;
+    if (this.modo !== 'ar') return;
+    // a câmera gira com o celular a cada quadro, com o mesmo atraso do vídeo na tela
+    const qc = tp.comGiro && this.giro ? this.giro.em(performance.now() - this.atrasoVideo) : null;
+    if (qc) this.camera.quaternion.copy(qc); else this.camera.quaternion.identity();
+    if (!tp.ok || !tp.alvoP) return;
     const dist = Math.max(1, tp.p.length());
     const rel = tp.p.distanceTo(tp.alvoP) / dist;
     const ang = tp.q.angleTo(tp.alvoQ);

@@ -1,6 +1,7 @@
 // RUNA — tela da mesa: junta regras, rede, mundo 3D, câmera e interface.
 import { Mundo } from './mundo.js';
 import { Rastreador } from './ar.js';
+import { Giro } from './giro.js';
 import * as Rede from './rede.js';
 import * as Som from './som.js';
 
@@ -27,7 +28,7 @@ function retratoDe(u) {
   return retrato(RETRATO_VIS[u.vis] || u.vis, '', 'message-circle');
 }
 
-let con, mundo, rast = null;
+let con, mundo, rast = null, giro = null;
 let E = null, ultimoSeq = 0, fila = [], tocando = false, pulando = false;
 let previsto = null; // jogada mostrada antes da resposta do servidor (ver preverJogada)
 let heroiSel = null;
@@ -831,6 +832,10 @@ let arLigado = false, perdidoDesde = 0;
 async function ligarAR() {
   Som.destravar();
   try {
+    // o giroscópio pede permissão no iPhone: tem que ser o primeiro passo depois do toque
+    if (!giro) giro = new Giro();
+    if (!giro.ligado) await giro.ligar();
+    mundo.giro = giro;
     if (!rast) rast = new Rastreador($('#video'));
     rast.ajusteLente = prefs.lente;
     await rast.ligar();
@@ -838,7 +843,12 @@ async function ligarAR() {
     mundo.definirModo('ar');
     document.body.classList.add('modo-ar', 'procurando');
     mundo.esconderAR();
-    rast.aoMudar = () => { if (rast.rastreando) mundo.aplicarPose(rast.ultimaPose, rast.focoAtual(), rast.vw, rast.vh); };
+    rast.aoMudar = () => {
+      if (!rast.rastreando) return;
+      const po = rast.ultimaPose;
+      const qCam = giro.ativo && !mundo.giroRuim ? giro.em(po.t0 - mundo.atrasoVideo) : null;
+      mundo.aplicarPose(po, rast.focoAtual(), rast.vw, rast.vh, qCam);
+    };
     toast('Aponte a câmera para as folhas do tabuleiro.');
   } catch (e) {
     toast('Câmera indisponível: ' + (e.name === 'NotAllowedError' ? 'permissão negada.' : e.message), true);
@@ -847,6 +857,7 @@ async function ligarAR() {
 }
 function desligarAR() {
   if (rast) rast.desligar();
+  if (giro) giro.desligar();
   arLigado = false;
   document.body.classList.remove('modo-ar', 'procurando');
   mundo.definirModo('mesa');
@@ -858,7 +869,7 @@ function vigiarAR() {
     perdidoDesde = 0;
     document.body.classList.remove('procurando');
     s.classList.add('ok');
-    s.textContent = `Tabuleiro encontrado · ${rast.marcadores} casas vistas`;
+    s.textContent = `Tabuleiro encontrado · ${rast.marcadores} casas vistas` + (giro && giro.ativo && !mundo.giroRuim ? ' · giroscópio ligado' : ' · sem giroscópio');
   } else {
     if (!perdidoDesde) perdidoDesde = performance.now();
     s.classList.remove('ok');
