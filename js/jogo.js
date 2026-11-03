@@ -37,7 +37,7 @@ let prefs = carregarPrefs();
 let pularLegenda = null;
 
 function carregarPrefs() {
-  try { return Object.assign({ sons: true, voz: null, lente: 1 }, JSON.parse(localStorage.getItem('runa_prefs') || '{}')); } catch (e) { return { sons: true, voz: null, lente: 1 }; }
+  try { return Object.assign({ sons: true, musica: true, voz: null, lente: 1 }, JSON.parse(localStorage.getItem('runa_prefs') || '{}')); } catch (e) { return { sons: true, musica: true, voz: null, lente: 1 }; }
 }
 function salvarPrefs() { try { localStorage.setItem('runa_prefs', JSON.stringify(prefs)); } catch (e) { /* sem armazenamento */ } }
 
@@ -65,7 +65,7 @@ async function iniciar() {
     }
   } catch (e) { return falhaFatal(e.message); }
   if (prefs.voz == null) prefs.voz = E.host === EU;
-  Som.configurar({ sons: prefs.sons, voz: prefs.voz });
+  Som.configurar({ sons: prefs.sons, musica: prefs.musica, voz: prefs.voz });
   carga('Pronto.', 1);
   $('#carregando').hidden = true;
   ligarEventos();
@@ -75,6 +75,8 @@ async function iniciar() {
     const ult = [...E.eventos].reverse().find((v) => v.t === 'narra');
     if (ult) legenda(ult.texto, null, true);
     Som.ambienteDe(R.cena(E).tema);
+  } else {
+    Som.musica('vila'); // lobby: toca no primeiro toque na tela
   }
   setInterval(vigiarAR, 500);
 }
@@ -887,7 +889,8 @@ function abrirMenu() {
     <div class="painel ornato" style="padding:6px 16px 10px">
       <div class="opcao-linha"><div><b>Realidade aumentada</b><small>Usa a câmera traseira e o tabuleiro impresso.</small></div><label class="chave"><input type="checkbox" id="op-ar" ${arLigado ? 'checked' : ''}><span></span></label></div>
       <div class="opcao-linha"><div><b>Voz do narrador e dos personagens</b><small>Deixe ligada em um celular só, para não falarem todos juntos.</small></div><label class="chave"><input type="checkbox" id="op-voz" ${prefs.voz ? 'checked' : ''} ${Som.vozDisponivel() ? '' : 'disabled'}><span></span></label></div>
-      <div class="opcao-linha"><div><b>Sons e ambiente</b></div><label class="chave"><input type="checkbox" id="op-sons" ${prefs.sons ? 'checked' : ''}><span></span></label></div>
+      <div class="opcao-linha"><div><b>Música</b></div><label class="chave"><input type="checkbox" id="op-musica" ${prefs.musica ? 'checked' : ''}><span></span></label></div>
+      <div class="opcao-linha"><div><b>Efeitos sonoros</b><small>Desligar aqui cala também a música.</small></div><label class="chave"><input type="checkbox" id="op-sons" ${prefs.sons ? 'checked' : ''}><span></span></label></div>
       <div class="opcao-linha" style="display:block"><b>Ajuste da lente</b><small>Se os personagens parecerem flutuar fora das casas, mexa aqui. ${rast && rast.foco ? 'Calibração automática ativa.' : ''}</small>
         <input type="range" id="op-lente" min="0.8" max="1.25" step="0.01" value="${prefs.lente}" style="width:100%;margin-top:8px"></div>
     </div>
@@ -919,6 +922,7 @@ function abrirMenu() {
   $('#op-ar').onchange = (e) => { $('#menu').hidden = true; e.target.checked ? ligarAR() : desligarAR(); };
   $('#op-voz').onchange = (e) => { prefs.voz = e.target.checked; salvarPrefs(); Som.configurar({ voz: prefs.voz }); if (prefs.voz) Som.falar('A voz do narrador está ligada.', R.NARRADOR.voz); };
   $('#op-sons').onchange = (e) => { prefs.sons = e.target.checked; salvarPrefs(); Som.configurar({ sons: prefs.sons }); };
+  $('#op-musica').onchange = (e) => { prefs.musica = e.target.checked; salvarPrefs(); Som.destravar(); Som.configurar({ musica: prefs.musica }); };
   $('#op-lente').oninput = (e) => { prefs.lente = +e.target.value; salvarPrefs(); if (rast) rast.ajusteLente = prefs.lente; };
   $('#bt-copiar').onclick = async () => { try { await navigator.clipboard.writeText(Rede.linkConvite(sala)); toast('Link copiado.'); } catch (e) { toast('Não deu para copiar.', true); } };
   $('#bt-menu-ficha').onclick = () => { $('#menu').hidden = true; abrirFichaCompleta((heroiAtivo() || R.herois(E)[0] || {}).id); };
@@ -1046,7 +1050,8 @@ function ligarEventos() {
   $('#bt-cronica').onclick = () => { $('#cronica').hidden = !$('#cronica').hidden; };
   $('#bt-fecha-cronica').onclick = () => { $('#cronica').hidden = true; };
   $('#bt-cancela-alvo').onclick = () => limparSelecao();
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) Som.destravar(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) Som.pausar(); else Som.destravar(); });
+  document.addEventListener('pointerdown', () => Som.destravar(), { passive: true });
 }
 
 window.RUNA_DEBUG = { get mundo() { return mundo; }, get E() { return E; } };

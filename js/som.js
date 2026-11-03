@@ -1,13 +1,19 @@
-// RUNA — sons sintetizados na hora (Web Audio) e vozes (síntese de fala do aparelho).
-// Nada de arquivo de áudio: tudo é gerado, então o jogo carrega rápido.
+// RUNA — efeitos sintetizados na hora (Web Audio), música de fundo por cena e vozes
+// (síntese de fala do aparelho).
 let ctx = null, mestre = null, ambiente = null;
-const cfg = { sons: true, voz: false, volume: 0.8 };
+const cfg = { sons: true, musica: true, voz: false, volume: 0.8 };
+let falando = false;
 
-export function configurar(c) { Object.assign(cfg, c); if (mestre) mestre.gain.value = cfg.sons ? cfg.volume : 0; }
+export function configurar(c) { Object.assign(cfg, c); if (mestre) mestre.gain.value = cfg.sons ? cfg.volume : 0; ajustarMusica(); }
 export function config() { return Object.assign({}, cfg); }
 
 export function destravar() {
-  if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+  if (ctx) {
+    if (ctx.state === 'suspended') ctx.resume();
+    if (pedida && (!faixa || faixa.nome !== pedida)) musica(pedida);
+    else if (faixa && faixa.a.paused) faixa.a.play().then(() => ajustarMusica(2)).catch(() => {});
+    return;
+  }
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   ctx = new AC();
@@ -16,6 +22,7 @@ export function destravar() {
   const comp = ctx.createDynamicsCompressor();
   mestre.connect(comp); comp.connect(ctx.destination);
   if ('speechSynthesis' in window) speechSynthesis.getVoices();
+  if (pedida) musica(pedida);
 }
 
 function ruidoBuf(seg = 1) {
@@ -78,32 +85,30 @@ export function sfx(nome) {
   }
 }
 
-// Ambiente em laço: vento, brasas, gotas e um acorde grave por tema.
-export function ambienteDe(tema) {
-  if (!ctx) return;
-  if (ambiente) { const a = ambiente; a.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.6); setTimeout(() => a.parar(), 2500); ambiente = null; }
-  const g = ctx.createGain(); g.gain.value = 0.0001; g.connect(mestre);
-  g.gain.setTargetAtTime(0.22, ctx.currentTime, 1.5);
-  const fontes = [], timers = [];
-  const vento = ctx.createBufferSource(); vento.buffer = ruidoBuf(4); vento.loop = true;
-  const fv = ctx.createBiquadFilter(); fv.type = 'bandpass'; fv.frequency.value = tema === 'taverna' ? 200 : 420; fv.Q.value = 0.6;
-  const lfo = ctx.createOscillator(); lfo.frequency.value = 0.08; const lg = ctx.createGain(); lg.gain.value = 180; lfo.connect(lg); lg.connect(fv.frequency);
-  const gv = ctx.createGain(); gv.gain.value = tema === 'taverna' ? 0.15 : tema === 'cripta' ? 0.25 : 0.5;
-  vento.connect(fv); fv.connect(gv); gv.connect(g); vento.start(); lfo.start(); fontes.push(vento, lfo);
-  const acordes = { taverna: [110, 165, 220], floresta: [98, 146.8, 196], pantano: [92.5, 138.6, 174.6], cripta: [73.4, 87.3, 110], salao: [65.4, 77.8, 98] };
-  (acordes[tema] || acordes.floresta).forEach((f, i) => {
-    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f; o.detune.value = (i - 1) * 6;
-    const go = ctx.createGain(); go.gain.value = 0.05; o.connect(go); go.connect(g); o.start(); fontes.push(o);
-  });
-  const evento = () => {
-    if (!ambiente || !cfg.sons) return;
-    const t = ctx.currentTime;
-    if (tema === 'taverna') for (let i = 0; i < 3; i++) ruido(t + Math.random() * 0.4, 0.02, 3000, 2, 'bandpass', 0.15);
-    else if (tema === 'cripta') tom(t, 1200 + Math.random() * 600, 0.15, 'sine', 0.05, 700);
-    else if (tema === 'pantano' && Math.random() < 0.5) { tom(t, 140, 0.12, 'square', 0.03, 90); tom(t + 0.15, 130, 0.12, 'square', 0.03, 85); }
-  };
-  timers.push(setInterval(evento, tema === 'taverna' ? 700 : 2600));
-  ambiente = { g, parar: () => { fontes.forEach((f) => { try { f.stop(); } catch (e) { /* já parou */ } }); timers.forEach(clearInterval); g.disconnect(); } };
+// ------------------------------------------------------------- música
+// Faixas feitas no Suno pelo dono do jogo (assets/musica). Passam pelo Web Audio para o volume
+// e as transições funcionarem também no iPhone (lá o volume do <audio> é só leitura).
+const FAIXA_TEMA = { taverna: 'taverna', vila: 'vila', floresta: 'floresta', pantano: 'floresta', lago: 'floresta', cripta: 'masmorra', salao: 'masmorra', mina: 'masmorra', forja: 'masmorra', ninho: 'masmorra', trono: 'masmorra' };
+const VOL_MUSICA = 0.5;
+let faixa = null, pedida = null;
+function volMusica() { return cfg.musica ? VOL_MUSICA * (falando ? 0.35 : 1) : 0.0001; }
+function ajustarMusica(seg = 0.8) { if (faixa && ctx) faixa.g.gain.setTargetAtTime(volMusica(), ctx.currentTime, seg / 3); }
+export function ambienteDe(tema) { musica(FAIXA_TEMA[tema] || 'masmorra'); }
+export function musica(nome) {
+  pedida = nome;
+  if (!ctx) return; // começa no primeiro toque (destravar)
+  if (faixa && faixa.nome === nome) { if (faixa.a.paused) faixa.a.play().catch(() => {}); return; }
+  if (faixa) {
+    const velha = faixa;
+    velha.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.6);
+    setTimeout(() => { velha.a.pause(); velha.a.removeAttribute('src'); velha.a.load(); velha.g.disconnect(); }, 2500);
+  }
+  const a = new Audio('assets/musica/' + nome + '.mp3');
+  a.loop = true; a.preload = 'auto'; a.crossOrigin = 'anonymous';
+  const g = ctx.createGain(); g.gain.value = 0.0001;
+  ctx.createMediaElementSource(a).connect(g); g.connect(mestre);
+  faixa = { nome, a, g };
+  a.play().then(() => ajustarMusica(2.5)).catch(() => { /* toca no próximo toque */ });
 }
 
 // ------------------------------------------------------------- vozes
@@ -126,8 +131,13 @@ export function falar(texto, voz) {
     u.pitch = Math.max(0.1, Math.min(2, (voz && voz.tom) || 1));
     u.rate = Math.max(0.5, Math.min(1.6, ((voz && voz.vel) || 1) * 1.02));
     u.volume = cfg.volume;
-    const limite = setTimeout(() => ok(true), 1500 + texto.length * 95);
-    u.onend = u.onerror = () => { clearTimeout(limite); ok(true); };
+    falando = true; ajustarMusica(0.4);
+    const fim = () => { falando = false; ajustarMusica(1.2); };
+    const limite = setTimeout(() => { fim(); ok(true); }, 1500 + texto.length * 95);
+    u.onend = u.onerror = () => { clearTimeout(limite); fim(); ok(true); };
     speechSynthesis.speak(u);
   });
 }
+
+// aba no fundo ou tela bloqueada: a música para (volta no próximo toque ou ao reabrir)
+export function pausar() { if (faixa) faixa.a.pause(); }
