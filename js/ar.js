@@ -85,7 +85,8 @@ export class Rastreador {
       const r = P.homografiaDosMarcadores(marc);
       if (r && r.erro < 6) {
         const cx = this.vw / 2, cy = this.vh / 2;
-        if (r.n >= 6) {
+        // o foco da lente fica travado depois de medido: se ele variar, o mapa muda de tamanho e treme
+        if (r.n >= 6 && this.focos.length < 30) {
           const f = P.focalDaHomografia(r.H, cx, cy);
           if (f && f > this.vw * 0.45 && f < this.vw * 1.8) {
             this.focos.push(f);

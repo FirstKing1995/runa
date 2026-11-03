@@ -389,14 +389,38 @@ export class Mundo {
     const p = new THREE.Vector3(), q = new THREE.Quaternion(), e = new THREE.Vector3();
     m.decompose(p, q, e);
     const tp = this.tpose;
-    if (!tp.ok || tp.p.distanceTo(p) > 2.5) { tp.p.copy(p); tp.q.copy(q); tp.ok = true; }
-    else {
-      const k = Math.min(1, 0.35 + tp.p.distanceTo(p) * 0.4);
-      tp.p.lerp(p, k); tp.q.slerp(q, k);
+    if (!tp.ok || tp.p.distanceTo(p) > 2.5) {
+      tp.p.copy(p); tp.q.copy(q); tp.ok = true;
+      tp.alvoP = p.clone(); tp.alvoQ = q.clone();
+    } else {
+      // a leitura nova só vira alvo; o quadro chega nele aos poucos (_estabilizarPose)
+      // leitura muito diferente é movimento de verdade: vale inteira; parecida, faz média
+      const grande = p.distanceTo(tp.alvoP) / Math.max(1, p.length()) > 0.03 || q.angleTo(tp.alvoQ) > 0.05;
+      const k = grande ? 1 : 0.5;
+      tp.alvoP.lerp(p, k); tp.alvoQ.slerp(q, k);
     }
-    this.raiz.matrix.compose(tp.p, tp.q, new THREE.Vector3(1, 1, 1));
-    this.raiz.matrixWorldNeedsUpdate = true;
+    this._comporPose();
     this.raiz.visible = true;
+  }
+  _comporPose() {
+    this.raiz.matrix.compose(this.tpose.p, this.tpose.q, new THREE.Vector3(1, 1, 1));
+    this.raiz.matrixWorldNeedsUpdate = true;
+  }
+  // Prende o mapa na folha: diferença pequena entre leituras é ruído da câmera e quase não
+  // mexe o mapa; diferença grande é o celular se movendo e o mapa acompanha rápido.
+  _estabilizarPose(dt) {
+    const tp = this.tpose;
+    if (this.modo !== 'ar' || !tp.ok || !tp.alvoP) return;
+    const dist = Math.max(1, tp.p.length());
+    const rel = tp.p.distanceTo(tp.alvoP) / dist;
+    const ang = tp.q.angleTo(tp.alvoQ);
+    const forca = Math.max(rel / 0.012, ang / 0.025);
+    const taxa = forca < 1 ? 1.5 * forca : Math.min(30, 4 + (forca - 1) * 8);
+    const k = 1 - Math.exp(-taxa * dt);
+    if (k <= 0) return;
+    tp.p.lerp(tp.alvoP, k);
+    tp.q.slerp(tp.alvoQ, k);
+    this._comporPose();
   }
   // Em AR, o papel (12 x 8) mostra um pedaço do mapa da cena, centrado no herói do jogador.
   _janelaQuadro(dt) {
@@ -412,7 +436,15 @@ export class Mundo {
       ax = Math.min(maxX, Math.max(0, v.raiz.position.x - TAB_C / 2));
       az = Math.min(maxZ, Math.max(0, v.raiz.position.z - TAB_L / 2));
     }
-    if (!this.janela) this.janela = { x: ax, z: az };
+    if (!this.janela) this.janela = { x: ax, z: az, ax, az };
+    // o mapa fica parado na folha; só desliza quando o herói chega perto da borda do papel
+    if (v) {
+      const hx = v.raiz.position.x - this.janela.ax, hz = v.raiz.position.z - this.janela.az;
+      const folga = 2.5;
+      if (hx < folga || hx > TAB_C - folga) this.janela.ax = ax;
+      if (hz < folga * 0.8 || hz > TAB_L - folga * 0.8) this.janela.az = az;
+    }
+    ax = this.janela.ax; az = this.janela.az;
     const k = Math.min(1, dt * 2.5);
     this.janela.x += (ax - this.janela.x) * k;
     this.janela.z += (az - this.janela.z) * k;
@@ -1694,6 +1726,7 @@ export class Mundo {
       c.s.material.opacity = 1 - c.f;
     }
     if (this.particulas) this._moverParticulas(dt, agora);
+    this._estabilizarPose(dt);
     this._janelaQuadro(dt);
     this._moverLuzesPresas();
     this._ajustarResolucao(dt);
