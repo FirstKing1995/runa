@@ -29,6 +29,7 @@ function retratoDe(u) {
 
 let con, mundo, rast = null;
 let E = null, ultimoSeq = 0, fila = [], tocando = false, pulando = false;
+let previsto = null; // jogada mostrada antes da resposta do servidor (ver preverJogada)
 let heroiSel = null;
 let sel = { modo: null, hab: null, item: null, previa: null };
 let prefs = carregarPrefs();
@@ -112,6 +113,21 @@ async function telaConvite() {
 function receber(e) {
   const primeira = !E;
   const antes = E;
+  if (previsto && !e._local) {
+    // jogada já mostrada pela previsão: o servidor confirma; só toca o que não foi previsto
+    if (e.versao < previsto.versao) return; // estado de antes da jogada
+    for (const v of e.eventos.filter((x) => x.n > previsto.seqServ)) {
+      if (previsto.eventos.length && previsto.eventos[0] === assinatura(v)) previsto.eventos.shift();
+      else fila.push(v);
+    }
+    previsto.seqServ = e.seq;
+    E = e;
+    ultimoSeq = e.seq;
+    if (antes && antes.fase !== e.fase) atualizarTudo();
+    processar();
+    if (!tocando) atualizarTudo();
+    return;
+  }
   E = e;
   if (primeira) { ultimoSeq = e.seq; return; }
   const novos = e.eventos.filter((v) => v.n > ultimoSeq);
@@ -170,8 +186,8 @@ async function tratar(ev, rapido) {
       return;
     }
     case 'narra': if (!rapido) await legenda(ev.texto, ev.mestre ? null : R.NARRADOR.voz, false, ev.mestre); return;
-    case 'fala': if (!rapido) await balao(ev); return;
-    case 'teste': if (!rapido) { Som.sfx('dado'); await cartaDado({ titulo: nomeDe(ev.heroi) + ' — ' + ev.pericia, nat: ev.nat, bonus: ev.bonus, total: ev.total, alvo: 'CD ' + ev.cd, ok: ev.ok, crit: ev.nat === 20 }); } return;
+    case 'fala': if (!rapido && falaVisivel(ev)) await balao(ev); return;
+    case 'teste': if (!rapido && !conversaAlheia(ev.heroi)) { Som.sfx('dado'); await cartaDado({ titulo: nomeDe(ev.heroi) + ' — ' + ev.pericia, nat: ev.nat, bonus: ev.bonus, total: ev.total, alvo: 'CD ' + ev.cd, ok: ev.ok, crit: ev.nat === 20 }); } return;
     case 'ataque': {
       if (rapido) return mundo.animar(ev, E);
       Som.sfx('dado');
@@ -512,13 +528,37 @@ function renderHud() {
 }
 
 // ---------------------------------------------------------------- diálogo
+// A conversa só prende o herói que está nela (no combate, prende todos).
+function presoNaConversa(h) { return !!E.dialogo && (!!E.combate || !h || E.dialogo.heroi === h.id); }
+// Só quem puxou a conversa vê a conversa; os outros recebem um aviso e assistem se quiserem.
+let conversa = { chave: null, ver: false, heroi: null };
+function falaVisivel(ev) {
+  if (!ev.dialogo) return true;
+  const hid = ev.heroi || (E.dialogo && E.dialogo.heroi) || conversa.heroi;
+  return !hid || ehMeu(hid) || conversa.ver;
+}
+// teste de perícia feito dentro da conversa de outro jogador
+function conversaAlheia(hid) { return !!conversa.chave && conversa.heroi === hid && !ehMeu(hid) && !conversa.ver; }
 function renderDialogo() {
   const box = $('#dialogo');
+  const aviso = $('#conversa-aviso');
   const d = R.dialogoAtual(E);
-  if (!d || tocando) { box.hidden = true; return; }
+  if (!d) { conversa = { chave: null, ver: false, heroi: null }; aviso.hidden = true; box.hidden = true; return; }
+  const chave = d.npc + '|' + d.heroi;
+  if (conversa.chave !== chave) conversa = { chave, ver: false, heroi: d.heroi };
   const npc = E.u[d.npc];
   const meu = ehMeu(d.heroi);
   const h = E.u[d.heroi];
+  if (!meu && !conversa.ver) {
+    box.hidden = true;
+    aviso.innerHTML = `<i data-lucide="message-circle"></i><span><b>${esc(h ? h.nome : '')}</b> conversa com ${esc(npc ? npc.nome : '')}</span><button class="btn pequeno" id="bt-ver-conversa">Ver conversa</button>`;
+    aviso.hidden = false;
+    icones();
+    $('#bt-ver-conversa').onclick = () => { conversa.ver = true; renderDialogo(); };
+    return;
+  }
+  aviso.hidden = true;
+  if (tocando) { box.hidden = true; return; }
   const ops = d.opcoes.map((o, i) => {
     if (!o.vis) return '';
     let t = esc(o.t);
@@ -533,12 +573,14 @@ function renderDialogo() {
   box.innerHTML = `<div class="dlg-quem">${retratoDe(npc)}<div><b>${esc(npc ? npc.nome : '')}</b><br><span>${meu ? 'Você fala por ' + esc(h.nome) : esc(h ? h.nome : '') + ' está conversando'}</span></div></div>
     <p class="dlg-fala">"${esc(d.fala)}"</p>
     <div class="dlg-opcoes">${ops}</div>
-    ${meu ? '<div style="text-align:right;margin-top:10px"><button class="btn pequeno fantasma" id="bt-sai-dlg">Encerrar conversa</button></div>' : '<p class="dlg-espera">As escolhas são de quem iniciou a conversa.</p>'}`;
+    ${meu ? '<div style="text-align:right;margin-top:10px"><button class="btn pequeno fantasma" id="bt-sai-dlg">Encerrar conversa</button></div>' : '<p class="dlg-espera">As escolhas são de quem iniciou a conversa. <button class="btn pequeno fantasma" id="bt-fecha-dlg">Fechar</button></p>'}`;
   box.hidden = false;
   icones();
   box.querySelectorAll('[data-op]').forEach((b) => b.onclick = () => enviar({ t: 'escolha', opcao: +b.dataset.op }));
   const s = $('#bt-sai-dlg');
   if (s) s.onclick = () => enviar({ t: 'sairDialogo' });
+  const f = $('#bt-fecha-dlg');
+  if (f) f.onclick = () => { conversa.ver = false; renderDialogo(); };
 }
 
 // ---------------------------------------------------------------- destaques no tabuleiro
@@ -546,7 +588,7 @@ function atualizarDestaques() {
   if (!mundo || tocando || !E || E.fase !== 'jogo') { mundo && mundo.destacar(null); return; }
   const h = heroiAtivo();
   const mapa = {};
-  if (h && !E.dialogo && minhaVez(h)) {
+  if (h && !presoNaConversa(h) && minhaVez(h)) {
     if (sel.modo === 'alvo') {
       for (const id of alvosValidos(h, sel.hab, sel.item)) { const u = E.u[id]; mapa[u.x + ',' + u.y] = 'alvo'; }
     } else {
@@ -618,7 +660,7 @@ function chanceAcerto(h, alvo, b) {
 function abrirFicha(u, h) {
   const f = $('#folha');
   const itens = [];
-  const pode = h && minhaVez(h) && !E.dialogo;
+  const pode = h && minhaVez(h) && !presoNaConversa(h);
   const vazio = (motivo) => `<small>${esc(motivo)}</small>`;
   let sub = '';
   if (u.lado === 'inimigo' || u.alvoPv) {
@@ -669,7 +711,7 @@ function abrirFicha(u, h) {
 function botaoInteragir(u, h, rotulo, ic) {
   const alc = u.dialogo ? 2 : 1;
   const longe = R.dist(h, u) > alc;
-  const ok = minhaVez(h) && !E.dialogo;
+  const ok = minhaVez(h) && !presoNaConversa(h);
   return `<button class="acao-item" data-interagir="1" ${ok ? '' : 'disabled'}><i data-lucide="${ic}"></i><div><b>${esc(rotulo)}</b><small>${longe ? 'Seu herói anda até lá primeiro.' : E.combate && !u.dialogo ? 'Gasta a ação.' : ''}</small></div></button>`;
 }
 async function interagirCom(u, h) {
@@ -681,7 +723,7 @@ async function interagirCom(u, h) {
     if (!best) { toast('Não dá para chegar perto de ' + u.nome + (E.combate ? ' neste turno.' : '.'), true); return; }
     const r = await enviar({ t: 'mover', heroi: h.id, x: best[0], y: best[1] });
     if (!r.ok) return;
-    if (E.combate || E.dialogo) return;
+    if (E.combate || presoNaConversa(h)) return;
   }
   enviar({ t: 'interagir', heroi: h.id, alvo: u.id });
 }
@@ -715,7 +757,7 @@ function abrirHabilidades(h) {
   const f = $('#folha');
   const lista = R.habsDe(h).map((k) => {
     const hb = R.HABS[k];
-    const ok = podeHab(h, k) && !E.dialogo;
+    const ok = podeHab(h, k) && !presoNaConversa(h);
     const usos = hb.usos ? ` · ${h.usos[k] || 0} uso${h.usos[k] === 1 ? '' : 's'}` : hb.carga ? ` · magia ${h.magia}` : '';
     return `<button class="acao-item" data-hab="${k}" ${ok ? '' : 'disabled'}><i data-lucide="${hb.ic}"></i><div><b>${esc(hb.n)}</b><small>${esc(hb.desc)}</small></div><span class="tag">${hb.custo === 'acao' ? 'Ação' : 'Bônus'}${usos}</span></button>`;
   }).join('');
@@ -743,15 +785,43 @@ function usarPocao(h) {
   atualizarDestaques();
 }
 
+// Previsão: as regras rodam iguais no celular e no servidor (mesma semente), então a
+// jogada aparece na hora e o servidor só confirma. Se ele recusar, volta ao estado dele.
+const PREVER = new Set(['mover', 'atacar', 'habilidade', 'item', 'interagir', 'fimTurno', 'escolha', 'sairDialogo']);
+
+function assinatura(v) { const { n, ...resto } = v; return JSON.stringify(resto); }
+function preverJogada(cmd) {
+  if (!E || E.fase !== 'jogo' || previsto || !PREVER.has(cmd.t) || typeof structuredClone !== 'function') return null;
+  const local = structuredClone(E);
+  delete local._local;
+  if (!R.aplicar(local, Object.assign({}, cmd, { jogador: EU })).ok) return null;
+  local._local = true;
+  previsto = { versao: local.versao, seqServ: E.seq, eventos: local.eventos.filter((v) => v.n > E.seq).map(assinatura) };
+  const p = previsto;
+  receber(local);
+  return p;
+}
+
 let enviando = 0;
 async function enviar(cmd) {
   Som.destravar();
+  const p = preverJogada(cmd);
   enviando++;
   document.body.style.cursor = 'progress';
   let r;
   try { r = await con.enviar(cmd); } catch (e) { r = { ok: false, erro: 'Sem conexão com o servidor. Tente de novo.' }; }
   enviando--;
   if (!enviando) document.body.style.cursor = '';
+  if (p) {
+    previsto = null;
+    if (!r.ok && con.estado) {
+      // servidor recusou: desfaz a previsão
+      E = con.estado;
+      ultimoSeq = E.seq;
+      if (!tocando) mundo.sincronizar(E, R).catch(() => {});
+      atualizarTudo();
+    }
+  }
   if (!r.ok) { toast(r.erro, true); Som.sfx('erro'); }
   return r;
 }

@@ -763,7 +763,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     }
     e.dialogo.no = noId;
     var u = e.u[e.dialogo.npc];
-    ev(e, { t: 'fala', quem: e.dialogo.npc, nome: u ? u.nome : '', vis: u ? u.vis : '', texto: no.fala, dialogo: true });
+    ev(e, { t: 'fala', quem: e.dialogo.npc, nome: u ? u.nome : '', vis: u ? u.vis : '', texto: no.fala, dialogo: true, heroi: e.dialogo.heroi });
     var cenaAntes = e.cenaIdx;
     executar(e, no.faz, ctx);
     if (e.cenaIdx !== cenaAntes) return;
@@ -786,7 +786,11 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     if (custo === 'bonus' && e.combate.bonus < 1) throw 'Você já usou sua ação bônus neste turno.';
   }
   function gastar(e, custo) { if (e.combate && custo) e.combate[custo]--; }
-  function semDialogo(e) { if (e.dialogo) throw 'Termine a conversa primeiro.'; }
+  // A conversa só prende quem está nela (e todo mundo no combate ou na saída da cena).
+  function semDialogo(e, h) {
+    if (!e.dialogo) return;
+    if (!h || e.combate || e.dialogo.heroi === h.id) throw 'Termine a conversa primeiro.';
+  }
 
   // ------------------------------------------------------------ comandos
   var CMD = {};
@@ -843,7 +847,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
 
   CMD.mover = function (e, c) {
     var h = heroiDe(e, c);
-    semDialogo(e);
+    semDialogo(e, h);
     exigirVez(e, h);
     var lim = R.movRestante(e, h.id);
     if (lim < 1) throw 'Sem movimento sobrando.';
@@ -857,7 +861,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
 
   CMD.atacar = function (e, c) {
     var h = heroiDe(e, c);
-    semDialogo(e);
+    semDialogo(e, h);
     exigirVez(e, h, 'acao');
     var alvo = e.u[c.alvo];
     if (!alvo || !ativa(alvo)) throw 'Alvo inválido.';
@@ -884,7 +888,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
 
   CMD.habilidade = function (e, c) {
     var h = heroiDe(e, c);
-    semDialogo(e);
+    semDialogo(e, h);
     var hb = R.HABS[c.hab];
     if (!hb || R.habsDe(h).indexOf(c.hab) < 0) throw 'Habilidade inválida.';
     exigirVez(e, h, hb.custo);
@@ -977,7 +981,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
 
   CMD.item = function (e, c) {
     var h = heroiDe(e, c);
-    semDialogo(e);
+    semDialogo(e, h);
     if (c.item !== 'pocao') throw 'Este item age sozinho, não precisa usar.';
     exigirVez(e, h, 'bonus');
     if (!e.inv.pocao) throw 'O grupo não tem poções.';
@@ -991,11 +995,12 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
 
   CMD.interagir = function (e, c) {
     var h = heroiDe(e, c);
-    semDialogo(e);
+    semDialogo(e, h);
     exigirVez(e, h);
     var u = e.u[c.alvo];
     if (!u || !ativa(u)) throw 'Nada para interagir aqui.';
     if (u.dialogo && (u.lado === 'npc' || (u.lado === 'inimigo' && u.pacifico))) {
+      if (e.dialogo) throw 'Outro herói está conversando. Espere a conversa terminar.';
       if (dist(h, u) > 2) throw 'Chegue mais perto para conversar (até 2 casas).';
       e.dialogo = { npc: u.id, dlg: u.dialogo, no: R.cena(e).dialogos[u.dialogo].inicio, heroi: h.id };
       entrarNo(e, e.dialogo.no, { heroi: h.id });
@@ -1035,7 +1040,7 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
     if (!o || !vis[c.opcao].vis) throw 'Opção inválida.';
     if (vis[c.opcao].bloq) throw 'Vocês não têm o necessário para isso.';
     if (o.acao && e.combate) { exigirVez(e, h, 'acao'); gastar(e, 'acao'); }
-    ev(e, { t: 'fala', quem: h.id, nome: h.nome, vis: h.vis, texto: o.t.replace(/^\[[^\]]+\]\s*/, ''), heroi: true });
+    ev(e, { t: 'fala', quem: h.id, nome: h.nome, vis: h.vis, texto: o.t.replace(/^\[[^\]]+\]\s*/, ''), dialogo: true, heroi: h.id });
     var ctx = { heroi: h.id };
     var cenaAntes = e.cenaIdx;
     executar(e, o.faz, ctx);
@@ -1103,6 +1108,8 @@ var RUNA = (typeof RUNA !== 'undefined' && RUNA) || {};
         if (!fimCombateSePreciso(e)) break;
       }
       for (var g = 0; g < 6 && e._proximo && e.combate; g++) { e._proximo = false; proximoTurno(e); }
+      // outro herói puxou um combate enquanto alguém conversava: a conversa acaba
+      if (e.dialogo && e.combate && cmd.t !== 'escolha' && cmd.t !== 'interagir') { e.dialogo = null; ev(e, { t: 'dialogo', fim: true }); }
       delete e._proximo;
       e.versao = (e.versao || 0) + 1;
       e.atualizado = Date.now();

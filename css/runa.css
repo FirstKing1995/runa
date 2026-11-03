@@ -157,6 +157,11 @@ body.modo-ar.procurando #mira { display: block; animation: pulsar 1.6s ease-in-o
 .dlg-op:disabled { opacity: 0.4; }
 .dlg-op .teste { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 999px; background: #3a2a14; color: var(--ouro-vivo); font-size: 0.75rem; font-family: var(--titulo); }
 .dlg-espera { color: var(--texto2); font-size: 0.9rem; }
+#conversa-aviso { margin: 6px auto 0; width: fit-content; max-width: calc(100% - 24px); padding: 5px 6px 5px 12px; border-radius: 999px; display: flex; gap: 8px; align-items: center; font-size: 0.86rem; color: var(--texto2); }
+#conversa-aviso[hidden] { display: none; }
+#conversa-aviso svg { width: 16px; height: 16px; color: var(--ouro); flex: none; }
+#conversa-aviso b { color: var(--texto); }
+.dlg-espera .btn { margin-left: 8px; }
 
 #dado { position: fixed; z-index: 16; left: 50%; top: 40%; transform: translate(-50%, -50%); padding: 16px 22px; text-align: center; min-width: 230px; pointer-events: none; animation: entraDado 0.2s ease-out; }
 @keyframes entraDado { from { transform: translate(-50%, -50%) scale(0.85); opacity: 0; } }

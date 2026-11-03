@@ -238,13 +238,18 @@ const facil = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 export class Mundo {
   constructor(canvas) {
     this.canvas = canvas;
+    this.celular = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    // resolução: começa moderada no celular e se ajusta ao desempenho (ver _ajustarResolucao)
+    this.prMax = Math.min(window.devicePixelRatio || 1, this.celular ? 1.5 : 1.75);
+    this.pr = this.prMax;
+    this.desemp = { soma: 0, n: 0, bons: 0, teto: this.prMax };
+    this.renderer.setPixelRatio(this.pr);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.cena = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
     this.raiz = new THREE.Group(); // recebe a pose do tabuleiro em AR
@@ -273,6 +278,17 @@ export class Mundo {
     this.cenaId = null;
     this.tremer = 0;
     this.tpose = { p: new THREE.Vector3(), q: new THREE.Quaternion(), ok: false };
+    // Luzes pontuais: um número fixo, sempre na cena. Mudar a quantidade de luzes obriga o
+    // navegador a recompilar todos os materiais (era o travão a cada magia e troca de cena).
+    this.poolLuz = [];
+    for (let i = 0; i < (this.celular ? 7 : 10); i++) {
+      const l = new THREE.PointLight(0xffffff, 0, 4.5, 1.6);
+      l.userData = { usada: false, base: 0, segue: null };
+      this.mundo.add(l);
+      this.poolLuz.push(l);
+    }
+    this.luzProj = new THREE.PointLight(0xffffff, 0, 2.5, 1.5);
+    this.mundo.add(this.luzProj);
     this._montarDestaques();
     this._montarControles();
     this.redimensionar();
@@ -434,6 +450,8 @@ export class Mundo {
     this.un.clear();
     this.camadaCena.clear();
     this.luzesTremulas = [];
+    for (const l of this.poolLuz) { l.intensity = 0; l.userData.usada = false; l.userData.segue = null; }
+    this.fogueiras = [];
     this.agua = [];
     this.tema = TEMAS[c.tema] || TEMAS.taverna;
     const t = this.tema;
@@ -443,11 +461,13 @@ export class Mundo {
     const hemi = new THREE.HemisphereLight(t.ceu, t.chao, t.amb);
     this.camadaCena.add(hemi);
     const sol = new THREE.DirectionalLight(t.sol[0], t.sol[1]);
-    sol.position.set(-2, 9, 4);
-    sol.target.position.set(4, 0, 3);
+    // a sombra cobre o mapa inteiro, qualquer que seja o tamanho da cena
+    const meio = Math.max(COLS, LINHAS) / 2 + 1.5;
+    sol.position.set(COLS / 2 - 6, 9, LINHAS / 2 + 1);
+    sol.target.position.set(COLS / 2, 0, LINHAS / 2);
     sol.castShadow = true;
     sol.shadow.mapSize.set(1024, 1024);
-    Object.assign(sol.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 25 });
+    Object.assign(sol.shadow.camera, { left: -meio, right: meio, top: meio, bottom: -meio, near: 1, far: 30 });
     sol.shadow.bias = -0.0015;
     this.camadaCena.add(sol, sol.target);
     // contraluz frio: recorta os personagens do fundo
@@ -458,6 +478,9 @@ export class Mundo {
 
     // base da maquete
     const r = rng(c.id.length * 977 + 13);
+    this._montando = true;
+    this.carregandoCena = true;
+    this._pedidosLuz = [];
     const texL = canvasTex(256, 64, (ctx, w, h) => LADOS[t.lado](ctx, w, h, r), true);
     texL.repeat.set(4, 1);
     const matLado = new THREE.MeshStandardMaterial({ map: texL, roughness: 0.95 });
@@ -487,7 +510,7 @@ export class Mundo {
       if (ch === '~') { this._agua(x, y); continue; }
       const m = new THREE.Mesh(geoPiso, mats[Math.floor(r() * 4)]);
       m.position.set(x + 0.5, PISO + 0.02 * (r() - 0.5) * 0.5, y + 0.5);
-      m.receiveShadow = true;
+      m.receiveShadow = true; m.userData.estatico = true;
       this.camadaCena.add(m);
     }
 
@@ -523,6 +546,41 @@ export class Mundo {
     this.anelSaida.visible = false;
     this.armadilhasVis = new Map();
     await Promise.all(tarefas.map((p) => p.catch((e) => console.warn('prop', e))));
+    this._montando = false;
+    this._distribuirLuzes();
+    this._instanciar();
+    // compila os shaders agora, na tela de carga, e não no meio da jogada
+    try { await this.renderer.compileAsync(this.cena, this.camera); } catch (e) { /* navegador antigo: compila ao desenhar */ }
+    this.carregandoCena = false;
+  }
+
+  // Cenário parado: peças iguais (mesma malha e material) viram um desenho só (InstancedMesh).
+  // Uma cena grande tinha 400+ desenhos por quadro; assim cai para algumas dezenas.
+  _instanciar() {
+    const raizC = this.camadaCena;
+    raizC.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(raizC.matrixWorld).invert();
+    const grupos = new Map();
+    for (const filho of raizC.children) {
+      if (!filho.userData.estatico) continue;
+      filho.traverse((m) => {
+        if (!m.isMesh || m.isSkinnedMesh || m.isInstancedMesh || Array.isArray(m.material) || m.morphTargetInfluences) return;
+        const k = m.geometry.uuid + '|' + m.material.uuid + '|' + (m.castShadow ? 1 : 0);
+        if (!grupos.has(k)) grupos.set(k, []);
+        grupos.get(k).push(m);
+      });
+    }
+    const mt = new THREE.Matrix4();
+    for (const lista of grupos.values()) {
+      if (lista.length < 3) continue;
+      const a = lista[0];
+      const im = new THREE.InstancedMesh(a.geometry, a.material, lista.length);
+      lista.forEach((m, i) => { im.setMatrixAt(i, mt.multiplyMatrices(inv, m.matrixWorld)); m.parent.remove(m); });
+      im.castShadow = a.castShadow; im.receiveShadow = a.receiveShadow;
+      im.instanceMatrix.needsUpdate = true;
+      im.computeBoundingSphere();
+      raizC.add(im);
+    }
   }
 
   _agua(x, y) {
@@ -572,12 +630,14 @@ export class Mundo {
     grupo.position.set(x, PISO, z);
     grupo.rotation.y = (rotGraus || 0) * Math.PI / 180;
     o.traverse((m) => { if (m.isMesh) { m.castShadow = !!sombra; m.receiveShadow = true; } });
+    if (!pai && this._montando) grupo.userData.estatico = true;
     (pai || this.camadaCena).add(grupo);
     return grupo;
   }
 
   _entorno(c, r, tarefas) {
-    const add = (nome, x, z, s, rot) => tarefas.push(nome === null ? x : this._prop(nome, x, z, s, rot, true));
+    // no celular, o que fica em volta do mapa não projeta sombra (economiza a passada de sombra)
+    const add = (nome, x, z, s, rot) => tarefas.push(nome === null ? x : this._prop(nome, x, z, s, rot, !this.celular));
     if (['vila', 'mina', 'lago', 'forja', 'ninho', 'trono'].includes(c.tema)) return this._entornoCap2(c, r, add);
     const pinta = (x, z) => x < -0.2 || x > COLS + 0.2 || z < -0.2 || z > LINHAS + 0.2;
     if (c.tema === 'taverna') {
@@ -645,12 +705,18 @@ export class Mundo {
   // trilhos de mina: dois ferros e dormentes; seguem a linha dos vizinhos
   _trilho(x, y, mapa) {
     const g = new THREE.Group();
-    const ferro = new THREE.MeshStandardMaterial({ color: 0x8a8278, metalness: 0.5, roughness: 0.45 });
-    const madeira = new THREE.MeshStandardMaterial({ color: 0x5a4028, roughness: 1 });
+    // peças compartilhadas entre todos os trilhos (viram um desenho só em _instanciar)
+    const T = this._trilhoKit || (this._trilhoKit = {
+      ferro: new THREE.MeshStandardMaterial({ color: 0x8a8278, metalness: 0.5, roughness: 0.45 }),
+      madeira: new THREE.MeshStandardMaterial({ color: 0x5a4028, roughness: 1 }),
+      dormente: new THREE.BoxGeometry(0.12, 0.03, 0.7),
+      barra: new THREE.BoxGeometry(1, 0.04, 0.035)
+    });
     const vert = (mapa[y - 1] && mapa[y - 1][x] === 't') || (mapa[y + 1] && mapa[y + 1][x] === 't');
-    for (let i = 0; i < 3; i++) { const d = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.03, 0.7), madeira); d.position.set(-0.33 + i * 0.33, 0.015, 0); d.receiveShadow = true; g.add(d); }
-    for (const z of [-0.2, 0.2]) { const t = new THREE.Mesh(new THREE.BoxGeometry(1, 0.04, 0.035), ferro); t.position.set(0, 0.05, z); t.castShadow = true; g.add(t); }
+    for (let i = 0; i < 3; i++) { const d = new THREE.Mesh(T.dormente, T.madeira); d.position.set(-0.33 + i * 0.33, 0.015, 0); d.receiveShadow = true; g.add(d); }
+    for (const z of [-0.2, 0.2]) { const t = new THREE.Mesh(T.barra, T.ferro); t.position.set(0, 0.05, z); t.castShadow = true; g.add(t); }
     g.position.set(x + 0.5, PISO + 0.035, y + 0.5);
+    g.userData.estatico = true;
     if (vert) g.rotation.y = Math.PI / 2;
     this.camadaCena.add(g);
   }
@@ -658,17 +724,23 @@ export class Mundo {
   _cristais(x, z, tam, r) {
     const g = new THREE.Group();
     const cor = r() < 0.7 ? 0x5ac8ff : 0xa07aff;
-    const mat = new THREE.MeshStandardMaterial({ color: cor, emissive: cor, emissiveIntensity: 0.9, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.88, flatShading: true });
+    // malha e material compartilhados: os cristais da cena viram um desenho só
+    if (!this._cristalGeo) this._cristalGeo = new THREE.ConeGeometry(1, 1, 5);
+    this._cristalMat = this._cristalMat || {};
+    const mat = this._cristalMat[cor] || (this._cristalMat[cor] = new THREE.MeshStandardMaterial({ color: cor, emissive: cor, emissiveIntensity: 0.9, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.88, flatShading: true }));
     const n = 4 + Math.floor(r() * 4);
     for (let i = 0; i < n; i++) {
       const alt = (0.25 + r() * 0.6) * tam;
-      const m = new THREE.Mesh(new THREE.ConeGeometry(0.06 + r() * 0.08, alt, 5), mat);
+      const raio = 0.06 + r() * 0.08;
+      const m = new THREE.Mesh(this._cristalGeo, mat);
+      m.scale.set(raio, alt, raio);
       m.position.set((r() - 0.5) * 0.5 * tam, alt / 2, (r() - 0.5) * 0.5 * tam);
       m.rotation.set((r() - 0.5) * 0.7, r() * 3, (r() - 0.5) * 0.7);
       m.castShadow = true;
       g.add(m);
     }
     g.position.set(x, PISO, z);
+    g.userData.estatico = true;
     this.camadaCena.add(g);
     if (r() < 0.6) this._luz(x, PISO + 0.5, z, cor, 0.6);
     return g;
@@ -746,13 +818,79 @@ export class Mundo {
     m.rotation.x = -Math.PI / 2; m.position.set(COLS / 2, -1.4, LINHAS / 2);
     return m;
   }
-  _luz(x, y, z, cor, i) {
-    const l = new THREE.PointLight(cor, i * 2.2, 4.5, 1.6);
+  // Pega uma luz livre do conjunto fixo. Sem luz livre, reforça a mais próxima
+  // (ou devolve uma luz de mentira, que aceita intensidade mas não ilumina).
+  _pegarLuz(x, y, z, cor, forca, alcance, queda) {
+    const l = this.poolLuz.find((p) => !p.userData.usada);
+    if (!l) {
+      let perto = null, d = 3.5;
+      for (const p of this.poolLuz) { const dd = Math.hypot(p.position.x - x, p.position.z - z); if (dd < d && !p.userData.segue) { d = dd; perto = p; } }
+      if (perto && perto.userData.base) perto.userData.base = Math.min(perto.userData.base * 1.15, perto.userData.base + forca * 0.3);
+      return { intensity: 0, position: new THREE.Vector3(), color: new THREE.Color(), userData: {}, falsa: true };
+    }
+    l.userData.usada = true; l.userData.segue = null;
+    l.color.set(cor); l.intensity = forca; l.distance = alcance; l.decay = queda;
     l.position.set(x, y, z);
-    l.userData.base = i * 2.2;
-    this.camadaCena.add(l);
-    this.luzesTremulas.push(l);
     return l;
+  }
+  _luz(x, y, z, cor, i) {
+    // durante a montagem só anota o pedido; _distribuirLuzes escolhe as que cabem
+    if (this._montando) {
+      const p = { x, y, z, cor, base: i * 2.2, distance: 4.5 };
+      this._pedidosLuz.push(p);
+      return p;
+    }
+    const l = this._pegarLuz(x, y, z, cor, i * 2.2, 4.5, 1.6);
+    l.userData.base = i * 2.2;
+    if (!l.falsa) this.luzesTremulas.push(l);
+    return l;
+  }
+  // Escolhe luzes bem espalhadas pelo mapa (a mais forte primeiro, depois sempre a mais
+  // longe das já escolhidas). As que sobram reforçam a escolhida mais próxima.
+  _distribuirLuzes() {
+    const pedidos = this._pedidosLuz || [];
+    this._pedidosLuz = [];
+    const limite = this.poolLuz.length - 2; // 2 ficam para sino, forja, altar e braseiro
+    const escolhidas = [];
+    const resto = pedidos.slice().sort((a, b) => b.base - a.base);
+    while (resto.length && escolhidas.length < limite) {
+      let iMelhor = 0;
+      if (escolhidas.length) {
+        let dMelhor = -1;
+        resto.forEach((p, i) => { const d = Math.min(...escolhidas.map((q) => Math.hypot(p.x - q.x, p.z - q.z))); if (d > dMelhor) { dMelhor = d; iMelhor = i; } });
+      }
+      escolhidas.push(resto.splice(iMelhor, 1)[0]);
+    }
+    for (const p of resto) {
+      let q = escolhidas[0], d = 1e9;
+      for (const e of escolhidas) { const dd = Math.hypot(p.x - e.x, p.z - e.z); if (dd < d) { d = dd; q = e; } }
+      if (q && d < 6) { q.extra = (q.extra || 0) + p.base * 0.3; q.distance = Math.max(q.distance, Math.min(7, 4.5 + d * 0.5)); }
+    }
+    for (const p of escolhidas) {
+      const l = this._pegarLuz(p.x, p.y, p.z, p.cor, p.base, p.distance, 1.6);
+      l.userData.base = Math.min(p.base * 1.6, p.base + (p.extra || 0));
+      if (!l.falsa) this.luzesTremulas.push(l);
+    }
+  }
+  // luz presa a um objeto (sino, forja, altar, braseiro): acompanha a posição dele
+  _luzPresa(obj, cor, forca, alcance, queda, dx, dy, dz) {
+    const l = this._pegarLuz(0, 0, 0, cor, forca, alcance, queda);
+    if (!l.falsa) l.userData.segue = { obj, off: new THREE.Vector3(dx, dy, dz) };
+    return l;
+  }
+  _moverLuzesPresas() {
+    const v = new THREE.Vector3();
+    for (const l of this.poolLuz) {
+      const s = l.userData.segue;
+      if (!s) continue;
+      let p = s.obj;
+      while (p && p !== this.mundo) p = p.parent;
+      if (!p) { if (s.visto) { l.intensity = 0; l.userData.usada = false; l.userData.segue = null; } continue; }
+      s.visto = true;
+      v.copy(s.off);
+      s.obj.localToWorld(v);
+      l.position.copy(this.mundo.worldToLocal(v));
+    }
   }
   _fogueira(x, z) {
     const g = new THREE.Group();
@@ -983,7 +1121,7 @@ export class Mundo {
       g.add(pivo);
       for (const sx of [-0.55, 0.55]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.15, 0.1), madeira); p.position.set(sx, 0.575, 0); p.castShadow = true; g.add(p); }
       const viga = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.1, 0.12), madeira); viga.position.y = 1.1; g.add(viga);
-      const luz = new THREE.PointLight(0x40ff80, 2.5, 3.2, 1.5); luz.position.y = 0.5; g.add(luz);
+      const luz = this._luzPresa(g, 0x40ff80, 2.5, 3.2, 1.5, 0, 0.5, 0);
       g.userData.pivo = pivo; g.userData.badalo = badalo; g.userData.luzSino = luz; g.userData.altura = 1.2;
       g.position.x = 0.5;
     } else if (v === 'runa') {
@@ -1005,7 +1143,7 @@ export class Mundo {
       const capuz = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.55, 0.7, 4, 1, true), pedra); capuz.position.set(0.5, 1.0, -0.1); capuz.rotation.y = Math.PI / 4; g.add(capuz);
       const brasa = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.05, 0.5), new THREE.MeshStandardMaterial({ color: 0x2a1a10, emissive: 0xff5a10, emissiveIntensity: 0 }));
       brasa.position.set(0.5, 0.56, 0); g.add(brasa);
-      const luz = new THREE.PointLight(0xff7a2a, 0, 5, 1.4); luz.position.set(0.5, 0.9, 0.3); g.add(luz);
+      const luz = this._luzPresa(g, 0xff7a2a, 0, 5, 1.4, 0.5, 0.9, 0.3);
       const runa = textoSprite('ᚱ', '#5a4a3a', 60); runa.position.set(0.5, 0.3, 0.4); runa.material.depthTest = true; g.add(runa);
       g.userData.forja = { brasa, luz }; g.userData.altura = 1.1;
     } else if (v === 'bigorna') {
@@ -1026,7 +1164,7 @@ export class Mundo {
       const pano = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.02, 0.3), new THREE.MeshStandardMaterial({ color: 0x3a1020 })); pano.position.y = 0.46; g.add(pano);
       const cera = new THREE.MeshStandardMaterial({ color: 0xe8dcc0, emissive: 0x3a2a10 });
       for (const xx of [-0.35, -0.2, 0.25, 0.38]) { const v1 = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.12 + Math.random() * 0.1, 8), cera); v1.position.set(xx, 0.52, (Math.random() - 0.5) * 0.3); g.add(v1); }
-      const luz = new THREE.PointLight(0xffa050, 1.4, 2.5, 1.6); luz.position.set(0, 0.8, 0.2); g.add(luz);
+      this._luzPresa(g, 0xffa050, 1.4, 2.5, 1.6, 0, 0.8, 0.2);
       g.userData.altura = 0.6;
     } else if (v === 'braseiro') {
       const tripe = new THREE.Group();
@@ -1036,7 +1174,7 @@ export class Mundo {
       const chamas = [];
       const mat = new THREE.SpriteMaterial({ map: pontoTex(), color: 0x50ff90, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
       for (let i = 0; i < 12; i++) { const s = new THREE.Sprite(mat.clone()); s.position.y = 0.62; g.add(s); chamas.push({ s, f: Math.random() }); }
-      const luz = new THREE.PointLight(0x50ff90, 2.2, 3, 1.5); luz.position.y = 0.95; g.add(luz);
+      const luz = this._luzPresa(g, 0x50ff90, 2.2, 3, 1.5, 0, 0.95, 0);
       g.userData.chamas = chamas; g.userData.chamaBase = 0.62; g.userData.corVerde = true; g.userData.luzBraseiro = luz; g.userData.tripe = tripe; g.userData.altura = 0.9;
       this.fogueiras = (this.fogueiras || []).concat([g]);
     } else if (v === 'trono') {
@@ -1394,8 +1532,7 @@ export class Mundo {
       cor = { fogo: 0xff7a1a, necro: 0x50ff90, missil: 0xb07aff }[fx] || 0xffffff;
       obj = new THREE.Sprite(new THREE.SpriteMaterial({ map: pontoTex(), color: cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
       obj.scale.setScalar(fx === 'missil' ? 0.18 : 0.32);
-      luz = new THREE.PointLight(cor, 3, 2.5, 1.5);
-      obj.add(luz);
+      luz = this.luzProj; luz.color.set(cor); luz.intensity = 3;
       rastro = true;
     }
     this.camadaFx.add(obj);
@@ -1407,12 +1544,13 @@ export class Mundo {
       p.y += Math.sin(t * Math.PI) * (fx === 'virote' ? 0.08 : 0.3);
       p.addScaledVector(lado, Math.sin(t * Math.PI) * curva);
       obj.position.copy(p);
+      if (luz) luz.position.copy(p);
       if (obj.isMesh) obj.lookAt(fim);
       if (fx === 'adaga') obj.rotation.x += 0.5;
       if (rastro && Math.random() < 0.6) this._faiscas(p, cor, 1, false, 0.12);
     });
     this.camadaFx.remove(obj);
-    if (luz) luz.dispose();
+    if (luz) luz.intensity = 0;
     this._faiscas(fim, cor === 0xffffff ? 0xd8c8a0 : cor, fx === 'fogo' ? 26 : 10);
   }
 
@@ -1557,6 +1695,8 @@ export class Mundo {
     }
     if (this.particulas) this._moverParticulas(dt, agora);
     this._janelaQuadro(dt);
+    this._moverLuzesPresas();
+    this._ajustarResolucao(dt);
     if (this.modo !== 'ar') {
       this._seguirQuadro(dt);
       this.controles.update();
@@ -1567,6 +1707,25 @@ export class Mundo {
       }
     }
     this.renderer.render(this.cena, this.camera);
+  }
+  // Celular lento: baixa a resolução aos poucos até o jogo voltar a rodar liso.
+  // Sobe de novo só se sobrar folga, e nunca acima de um nível que já engasgou.
+  _ajustarResolucao(dt) {
+    const d = this.desemp;
+    if (document.hidden || this.carregandoCena) { d.soma = 0; d.n = 0; return; }
+    d.soma += dt; d.n++;
+    if (d.soma < 1.5) return;
+    const media = d.soma / d.n * 1000;
+    d.soma = 0; d.n = 0;
+    let novo = this.pr;
+    if (media > 26 && this.pr > 0.75) { d.teto = this.pr - 0.05; novo = Math.max(0.75, this.pr - 0.25); d.bons = 0; }
+    else if (media < 18) { if (++d.bons >= 4 && this.pr + 0.25 <= Math.min(this.prMax, d.teto)) { novo = this.pr + 0.25; d.bons = 0; } }
+    else d.bons = 0;
+    if (novo !== this.pr) {
+      this.pr = novo;
+      this.renderer.setPixelRatio(novo);
+      this.renderer.setSize(this.W, this.H, false);
+    }
   }
   _moverParticulas(dt, agora) {
     const p = this.particulas, pos = p.obj.geometry.attributes.position;

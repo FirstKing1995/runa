@@ -61,6 +61,10 @@ export class Rastreador {
     if (!this.ativo) return;
     requestAnimationFrame(() => this._laco());
     if (this.ocupado || this.video.readyState < 2) return;
+    // até ~22 leituras por segundo: copiar o quadro da câmera custa caro no celular
+    const agora = performance.now();
+    if (agora - (this.ultEnvio || 0) < 45) return;
+    this.ultEnvio = agora;
     const esc = LARGURA_DETECCAO / this.vw;
     const w = Math.round(this.vw * esc), h = Math.round(this.vh * esc);
     if (this.canvas.width !== w) { this.canvas.width = w; this.canvas.height = h; }
